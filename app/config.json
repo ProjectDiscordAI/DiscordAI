@@ -1,0 +1,61 @@
+{
+	"bot": {
+		"token": "PUT YOUR DISCORD BOT TOKEN HERE",
+		"id": "PUT YOUR DISCORD BOT ID",
+		"status": {
+			"since": null,
+			"activities": [{
+				"name": "Best AI bot on Discord",
+				"type": 5
+			}],
+			"status": "online",
+			"afk": false
+		}
+	},
+	"ai": {
+		"key": "PUT YOUR GEMINI API KEY HERE",
+		"model": "gemini-2.0-flash-exp",
+		"instruction_file": "./system.md",
+		"functions_file": "./functions.js"
+	},
+	"user": {
+		"admin": [ "PUT YOUR DISCORD ACCOUNT ID HERE" ],
+		"custom_role": {
+			"PUT YOUR DISCORD ACCOUNT ID HERE": "Admin"
+		},
+		"default_role": "User",
+		"allowed_bot": [],
+		"banned": []
+	},
+	"core": {
+		"no_system_message": false,
+		"generate_command": "Generate",
+		"message_debug_command": "Debug",
+		"memory_folder": "./memory",
+		"no_memory_system": false,
+		"time_language": "en-US"
+	},
+	"encryption": {
+		"key_file": "./encryption.key"
+	},
+	"custom": {
+		"error_embed": {
+			"title": "Oh no, it's something wrong!",
+			"description": "The `e.daied` file is the error log. \nIf you keep receiving this message, please contact the developer."
+		},
+		"timeout_embed": {
+			"title": "Too many requests!",
+			"description": "Please wait for a while."
+		},
+		"finish_before": "Received ",
+		"finish_after": " responses\n",
+		"request_before": "Call ",
+		"request_after": " actions",
+		"info_button": "View info",
+		"accept_button": "Allow",
+		"ignore_button": "Ignore",
+		"info_embed": {
+			"title": "Action Info"
+		}
+	}
+}
