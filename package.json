@@ -1,6 +1,6 @@
 {
   "name": "@justapple/discordai",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Powerful Discord AI bot by Gemini API",
   "keywords": [
     "Discord",
@@ -12,7 +12,8 @@
     "API",
     "JustApple",
     "JustNode",
-    "DiscordAI"
+    "DiscordAI",
+    "robotics"
   ],
   "homepage": "https://github.com/JustappleJust/DiscordAI#readme",
   "bugs": {
