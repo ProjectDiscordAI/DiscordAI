@@ -702,7 +702,7 @@ function getFile(fileUrl, daied) {
 		//no that cache, make an api request to get it
 		const res = await request.request('GET', fileUrl);
 		if (daied) {
-			return daiedToJson(res.data); //json data
+			return daiedToJson(res.body); //json data
 		} else {
 			return res.text(); //text data
 		}
