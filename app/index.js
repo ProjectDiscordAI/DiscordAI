@@ -65,9 +65,9 @@ const model = ai.model(config.ai.model, {
 const supportedMime = Object.keys(gemini.supportMimeTypes);
 
 //cache messages to reduce api requests
-const messageCacher = new Cacher();
-const fileCacher = new Cacher();
-const memoryCacher = new Cacher();
+const messageCacher = new Cacher(undefined, config.core.message_cache_timeout ?? 900000);
+const fileCacher = new Cacher(undefined, config.core.file_cache_timeout ?? 900000);
+const memoryCacher = new Cacher(undefined, config.core.memory_cache_timeout ?? 3600000);
 
 //connect to discord
 bot.connectGateway().then((gateway) => {

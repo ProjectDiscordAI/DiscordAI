@@ -258,6 +258,12 @@ This block contains core settings.
     -   **Optional**. The command name for generating messages. The default is `Generate`.
 -   `message_debug_command` (String):
     -   **Optional**. The command name for message debugging. The default is `Debug`.
+-   `message_cache_timeout` (Number):
+    -   **Optional**. The cache time of messages. The default is `900000`, set to `0` to cache them forever.
+-   `file_cache_timeout` (Number):
+    -   **Optional**. The cache time of files (function data). The default is `900000`, set to `0` to cache them forever.
+-   `memory_cache_timeout` (Number):
+    -   **Optional**. The cache time of user memories. The default is `3600000`, set to `0` to cache them forever.
 
 ### `encryption`
 

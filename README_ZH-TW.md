@@ -259,6 +259,12 @@ module.exports = doSomething;
   - **選填**。產生訊息的指令名稱。預設為 `Generate`。
 - `message_debug_command` (字串)：
   - **選填**。訊息除錯的指令名稱。預設為 `Debug`。
+- `message_cache_timeout` (數字)：
+  - **選填**。訊息快取的時間（毫秒）。預設為 `900000`，設定為 `0` 表示永不刪除。
+- `file_cache_timeout` (數字)：
+  - **選填**。檔案（函式資料）快取的時間（毫秒）。預設為 `900000`，設定為 `0` 表示永不刪除。
+- `memory_cache_timeout` (數字)：
+  - **選填**。使用者記憶快取的時間（毫秒）。預設為 `3600000`，設定為 `0` 表示永不刪除。
 
 ### `encryption`
 
