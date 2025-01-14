@@ -1,11 +1,11 @@
 const gemini = require('@jnode/gemini');
 
-const jsEval = new gemini.Function('js_eval', '(Standard Action) .', {
+const jsEval = new gemini.Function('js_eval', '(Standard Action) Run JavaScript in `await eval(script)`.', {
 	type: 'OBJECT',
 	properties: {
 		script: {
 			type: 'STRING',
-			description: 'Script for eval.'
+			description: 'Script for eval. Supports async.'
 		}
 	}
 }, async (d, e) => {
@@ -13,7 +13,7 @@ const jsEval = new gemini.Function('js_eval', '(Standard Action) .', {
 		try {
 			return {
 				status: 'SUCCEED',
-				response: eval(d.script)
+				response: await eval(d.script)
 			};
 		} catch (err) {
 			return {
