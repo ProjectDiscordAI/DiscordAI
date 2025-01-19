@@ -27,7 +27,7 @@ const readHistoryMessages = new gemini.Function(
 				result.push({
 					id: i.id,
 					author: {
-						role: i.author.id === e.config.bot.id ? 'You' : (config.user.custom_role[author.id] ?? config.user.default_role ?? 'USER'),
+						role: i.author.id === e.config.bot.id ? 'You' : (e.config.user.custom_role[author.id] ?? config.user.default_role ?? 'USER'),
 						display_name: i.author.global_name,
 						username: i.author.username,
 						mention: `<@${i.author.id}>`
