@@ -1,6 +1,6 @@
 {
   "name": "@justapple/discordai",
-  "version": "1.0.8",
+  "version": "1.0.9",
   "description": "Powerful Discord AI bot by Gemini API",
   "keywords": [
     "Discord",
@@ -29,7 +29,8 @@
   "main": "app/index.js",
   "scripts": {
     "start": "node .",
-    "test": "echo \"Hello, DiscordAI.\""
+    "test": "echo \"Hello, DiscordAI.\"",
+    "update": "git stash && git pull --no-ff && git stash apply"
   },
   "dependencies": {
     "@jnode/request": ">=1.1.3 <2.0.0",
