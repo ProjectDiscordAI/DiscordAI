@@ -47,7 +47,7 @@ try {
 }
 
 //create discord and gemini client
-const bot = new discord.Client(config.bot.token, config.bot.client_options);
+const bot = new discord.Client(config.bot.token, { gatewayIntents: 0b1001001000010000, ...(config.bot.client_options) });
 const ai = new gemini.Client(config.ai.key, config.ai.client_options);
 
 //load instruction and functions
