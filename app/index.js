@@ -513,7 +513,7 @@ async function generate(message, author) {
 		console.error(err);
 		
 		//too many request error
-		if (err.statusCode === 429 || err.statusCode === 503) {
+		if (err.code === 429 || err.code === 503) {
 			response.embeds.push({
 				title: 'Too many requests!',
 				description: `Please wait for a while.`,
