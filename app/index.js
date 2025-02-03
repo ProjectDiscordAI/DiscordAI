@@ -341,7 +341,7 @@ async function generate(message, author) {
 	//response message object
 	let response = {
 		allowed_mentions: {
-			parse: [],
+			parse: [ 'users' ],
 			users: new Set([ ...(config.user.allowed_bot), ...(config.user.allowed_mentions) ]),
 			replied_user: !message.author.bot && (author.id === message.author.id)
 		},
