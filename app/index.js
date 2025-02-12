@@ -48,7 +48,7 @@ try {
 
 //create discord and gemini client
 const bot = new discord.Client(config.bot.token, { gatewayIntents: 0b1001001000010000, ...(config.bot.client_options) });
-const ai = new gemini.Client(config.ai.key, config.ai.client_options);
+const ai = new gemini.Client(config.ai.key, { fileUnsupportError: false, ...config.ai.client_options });
 
 //load instruction and functions
 const instruction = fs.readFileSync(config.ai.instruction_file ?? './system.md').toString('utf8');
