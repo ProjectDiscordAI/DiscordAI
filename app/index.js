@@ -589,6 +589,7 @@ async function generate(message, author) {
 
 async function collectContents(message, contents = [], uid) {
 	let parts = [];
+	let modelFileParts = [ true ]; //a user turn
 	let text = message.content ?? '';
 	
 	//check forward message or normal message
@@ -630,15 +631,24 @@ async function collectContents(message, contents = [], uid) {
 					//load file data
 					f = await getFile(i.url, `${message.channel_id}-${message.id}-f.daied`);
 				}
-			} else {
-				//any file
-				if (!config.core.no_system_message) parts.push(
-					'---- SYSTEM_MESSAGE ATTACHMENT_INFO ' +
-					`ATTACHMENT_NAME:"${i.filename}" ` +
-					`ATTACHMENT_URL:"${i.url}" ` +
-					'----\n'
-				);
-				if (supportedMime.includes(path.extname(i.filename))) parts.push({ fileUrl: i.url });
+			} else { //any file
+				if (isUser) { //insert to user turn
+					if (!config.core.no_system_message) parts.push(
+						'---- SYSTEM_MESSAGE ATTACHMENT_INFO ' +
+						`ATTACHMENT_NAME:"${i.filename}" ` +
+						`ATTACHMENT_URL:"${i.url}" ` +
+						'----\n'
+					);
+					if (supportedMime.includes(path.extname(i.filename))) parts.push({ fileUrl: i.url });
+				} else { //files in model turn will be insert to previous user turn
+					if (!config.core.no_system_message) modelFileParts.push(
+						'---- SYSTEM_MESSAGE FUNCTION_RESPONSE_ATTACHMENT_INFO ' +
+						`ATTACHMENT_NAME:"${i.filename}" ` +
+						`ATTACHMENT_URL:"${i.url}" ` +
+						'----\n'
+					);
+					if (supportedMime.includes(path.extname(i.filename))) modelFileParts.push({ fileUrl: i.url });
+				}
 			}
 		}
 	}
@@ -658,8 +668,9 @@ async function collectContents(message, contents = [], uid) {
 		}
 	}
 	
-	//push function call and function response
+	//push content
 	contents.unshift(f.c ?? parts); //push function call
+	if (modelFileParts.length > 1) contents.unshift(modelFileParts); //push files in model turn
 	if (f.re) contents.unshift(f.re); //push function response extend content
 	if (f.r) contents.unshift(f.r); //push function response
 	
