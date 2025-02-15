@@ -473,10 +473,11 @@ async function generate(message, author) {
 				data: jsonToDaied(f)
 			});
 			
+			//function call embed
 			response.embeds.push({
 				description: (actionDescription) ?? (
 					(f.r ? ((config.custom.finish_before ?? 'Receive `') + functionResponseParts.length + (config.custom.finish_after ?? '` action response(s).\n')) : '') +
-					(f.c ? ((config.custom.request_before ?? 'Run `') + result.functionCalls.length + (config.custom.request_after ?? '` action(s).')) : '')
+					(f.c ? ((config.custom.request_before ?? 'Run: `') + result.functionCalls.map(i => i.function.dai_name ?? i.function.name).join(config.custom.request_split ?? ', ') + (config.custom.request_after ?? '`.')) : '')
 				),
 				image: { url: 'attachment://f.daied' }
 			});

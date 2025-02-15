@@ -284,10 +284,12 @@ This block contains custom text settings.
     -   **Optional**. Text displayed before receiving `x` action responses. The default is `Receive `.
 -   `finish_after` (String):
     -   **Optional**. Text displayed after receiving `x` action responses. The default is ` action response(s).\n`.
--   `request_before` (String):
-    -   **Optional**. Text displayed before executing `x` actions. The default is `Run `.
--   `request_after` (String):
-    -   **Optional**. Text displayed after executing `x` actions. The default is ` action(s).`.
+- `request_before` (String):
+    - **Optional**. The `Run:` in `Run: Something, Something.` that is displayed before executing the action. The default is `Run: `.
+- `request_split` (String):
+    - **Optional**. The separator (`, `) in `Run: Something, Something.` that is displayed before executing the action. The default is `, `.
+- `request_after` (String):
+    - **Optional**. The `.` in `Run: Something, Something.` that is displayed before executing the action. The default is `.`.
 -    `info_button` (String):
         -   **Optional**. Text for the button that displays function information. The default is `Info`.
 -   `accept_button` (String):

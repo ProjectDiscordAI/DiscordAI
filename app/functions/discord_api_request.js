@@ -40,5 +40,6 @@ const discordAPIRequest = new gemini.Function(
 		};
 	}
 );
+discordAPIRequest.dai_name = 'Make Discord API request';
 
 module.exports = discordAPIRequest;

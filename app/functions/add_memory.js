@@ -14,7 +14,7 @@ const addMemory = new gemini.Function('add_memory', '(Memory/Silent Action) Add 
 	
 	try {
 		await e.addMemory(d.uid, d.memory);
-		e.response.embeds.push({ description: 'Memory updated!' });
+		e.response.embeds.push({ description: e.config.custom.memory_add_message ?? 'Memory updated!' });
 		return { status: 'SUCCEED' };
 	} catch (error) {
 		console.error(error);

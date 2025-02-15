@@ -22,5 +22,6 @@ const randomNumber = new gemini.Function(
 	}
 );
 randomNumber.dai_auto = true;
+randomNumber.dai_name = 'Roll a random number';
 
 module.exports = randomNumber;

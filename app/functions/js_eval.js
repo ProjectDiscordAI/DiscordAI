@@ -28,5 +28,6 @@ const jsEval = new gemini.Function('js_eval', '(Standard Action) Run JavaScript 
 		};
 	}
 });
+jsEval.dai_name = 'Eval JavaScript (Node.js)';
 
 module.exports = jsEval;

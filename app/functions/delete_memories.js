@@ -22,7 +22,7 @@ const deleteMemories = new gemini.Function('delete_memories', '(Memory/Silent Ac
 	
 	try {
 		await e.deleteMemory(d.uid, d.indexes);
-		e.response.embeds.push({ description: 'Memory updated!' });
+		e.response.embeds.push({ description: e.config.custom.memory_delete_message ?? 'Memory updated!' });
 		return { status: 'SUCCEED' };
 	} catch (error) {
 		console.error(error);
