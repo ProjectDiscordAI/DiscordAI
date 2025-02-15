@@ -190,6 +190,7 @@ Return `null` or any object as the execution result.
 ### Extra parameters
 `.dai_name`: String, a readable name displayed to the user.
 `dai_fcInfo(d)`: Function, converts the call parameters into a user-readable description (string).
+`dai_fcInfo(d)`: Function, converts the call parameters into a user-readable short description (string).
 `dai_hidden`: Boolean, whether it is a hidden function. Hidden functions are executed immediately before sending a response and do not retain call records or results.
 `dai_auto`: Boolean, whether it is an automatic function. Automatic functions are executed without user consent and retain call records and results.
 
