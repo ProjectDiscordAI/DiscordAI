@@ -291,13 +291,17 @@ module.exports = doSomething;
 - `request_split` (字串)：
   - **選填**。在執行動作前顯示的`執行動作：某某、某某。`中的分隔符（`、`），預設為 `, `。
 - `request_after` (字串)：
-   - **選填**。在執行動作前顯示的`執行動作：某某、某某。`中的`。`，預設為 `.`。
+  - **選填**。在執行動作前顯示的`執行動作：某某、某某。`中的`。`，預設為 `.`。
+- `f_embed` (物件)：
+  - **選填**。動作資訊簡述的嵌入物件選項，[Embed Object](https://discord.com/developers/docs/resources/message#embed-object)，請勿覆蓋 `image` 項。
 - `info_button` (字串)：
-  - **選填**。顯示功能資訊的按鈕文字，預設為 `Info`。
+  - **選填**。顯示動作資訊的按鈕文字，預設為 `Info`。
 - `accept_button` (字串)：
   - **選填**。同意執行動作的按鈕文字，預設為 `Accept`。
 - `ignore_button` (字串)：
   - **選填**。忽略動作的按鈕文字，預設為 `Ignore`。
+- `info_embed` (物件)：
+  - **選填**。動作資訊的嵌入物件選項，[Embed Object](https://discord.com/developers/docs/resources/message#embed-object)。
 - `timeout_embed` (物件)：
   - **選填**。超時訊息的嵌入物件選項，[Embed Object](https://discord.com/developers/docs/resources/message#embed-object)。
 - `error_embed` (物件)：

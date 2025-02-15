@@ -487,7 +487,8 @@ async function generate(message, author) {
 						(config.custom.request_after ?? '`.')
 					) : '')
 				),
-				image: { url: 'attachment://f.daied' }
+				image: { url: 'attachment://f.daied' },
+				...config.custom.f_embed
 			});
 		}
 		

@@ -291,17 +291,21 @@ This block contains custom text settings.
     - **Optional**. The separator (`, `) in `Run: Something, Something.` that is displayed before executing the action. The default is `, `.
 - `request_after` (String):
     - **Optional**. The `.` in `Run: Something, Something.` that is displayed before executing the action. The default is `.`.
--    `info_button` (String):
-        -   **Optional**. Text for the button that displays function information. The default is `Info`.
+-   `f_embed` (Object):
+    -   **Optional**. Embed object options for function call short description, [Embed Object](https://discord.com/developers/docs/resources/message#embed-object), DO NOT replace item `image` of the embed.
+-   `info_button` (String):
+    -   **Optional**. Text for the button that displays function information. The default is `Info`.
 -   `accept_button` (String):
     -   **Optional**. Text for the button that agrees to execute actions. The default is `Accept`.
 -   `ignore_button` (String):
     -   **Optional**. Text for the button that ignores actions. The default is `Ignore`.
--    `timeout_embed` (Object):
-        -   **Optional**. Embed object options for timeout messages, [Embed Object](https://discord.com/developers/docs/resources/message#embed-object).
--    `error_embed` (Object):
-        -   **Optional**. Embed object options for error messages, [Embed Object](https://discord.com/developers/docs/resources/message#embed-object).
--    `debugNoPermission` (String):
+-   `info_embed` (Object):
+    -   **Optional**. Embed object options for function call info, [Embed Object](https://discord.com/developers/docs/resources/message#embed-object).
+-   `timeout_embed` (Object):
+    -   **Optional**. Embed object options for timeout messages, [Embed Object](https://discord.com/developers/docs/resources/message#embed-object).
+-   `error_embed` (Object):
+    -   **Optional**. Embed object options for error messages, [Embed Object](https://discord.com/developers/docs/resources/message#embed-object).
+-   `debugNoPermission` (String):
         -   **Optional**. Message displayed when debugging command does not have permission, the default is `This command is not for you.`
 
 ## Request Help / Provide Suggestions
