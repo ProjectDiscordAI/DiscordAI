@@ -39,23 +39,6 @@
 		"key_file": "./encryption.key"
 	},
 	"custom": {
-		"error_embed": {
-			"title": "Oh no, it's something wrong!",
-			"description": "The `e.daied` file is the error log. \nIf you keep receiving this message, please contact the developer."
-		},
-		"timeout_embed": {
-			"title": "Too many requests!",
-			"description": "Please wait for a while."
-		},
-		"finish_before": "Received ",
-		"finish_after": " responses\n",
-		"request_before": "Call ",
-		"request_after": " actions",
-		"info_button": "View info",
-		"accept_button": "Allow",
-		"ignore_button": "Ignore",
-		"info_embed": {
-			"title": "Action Info"
-		}
+		
 	}
 }

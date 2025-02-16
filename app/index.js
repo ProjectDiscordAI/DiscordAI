@@ -482,9 +482,9 @@ async function generate(message, author) {
 						(config.custom.finish_after ?? '` action response(s).\n')
 					) : '') +
 					(f.c ? (
-						(config.custom.request_before ?? 'Run: `') +
+						(config.custom.request_before ?? 'Run: ') +
 						result.functionCalls.map(i => (i.function.dai_fcInfoShort ? i.function.dai_fcInfoShort(i.args) : i.function.dai_name) ?? i.function.name).join(config.custom.request_split ?? ', ') +
-						(config.custom.request_after ?? '`.')
+						(config.custom.request_after ?? '.')
 					) : '')
 				),
 				image: { url: 'attachment://f.daied' },
