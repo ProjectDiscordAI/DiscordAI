@@ -23,5 +23,8 @@ const randomNumber = new gemini.Function(
 );
 randomNumber.dai_auto = true;
 randomNumber.dai_name = 'Roll a random number';
+randomNumber.dai_fcInfoShort = (d) => {
+	return `Roll a number from \`${d.number_start}~${d.number_end}\``
+};
 
 module.exports = randomNumber;

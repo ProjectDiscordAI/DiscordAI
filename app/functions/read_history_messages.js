@@ -52,5 +52,8 @@ const readHistoryMessages = new gemini.Function(
 	}
 );
 readHistoryMessages.dai_name = 'Read history messages';
+readHistoryMessages.dai_fcInfoShort = (d) => {
+	return `Read ${d.limit ?? 50} history messages`;
+};
 
 module.exports = readHistoryMessages;
