@@ -473,7 +473,7 @@ async function generate(message, author) {
 					await result.functionCalls[i].function.func(result.functionCalls[i].args, extraData); //run target function
 					partRemoves.unshift(result.functionCalls[i].partIndex);
 					callRemoves.unshift(i);
-					log += `\t\x1b[1m${i.name}\x1b[0m has been executed silently.\n`;
+					log += `\t\x1b[1m${result.functionCalls[i].name}\x1b[0m has been executed silently.\n`;
 				} else {
 					f.c = result.content;
 				}
@@ -606,7 +606,7 @@ async function generate(message, author) {
 		}
 
 		//log
-		console.log(log);
+		console.log(log.trimEnd());
 
 		//get json response
 		res = res.json();
