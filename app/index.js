@@ -606,7 +606,7 @@ async function generate(message, author) {
 		}
 
 		//log
-		console.log(log.trimEnd());
+		logWithTime(log.trimEnd());
 
 		//get json response
 		res = res.json();
