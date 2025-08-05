@@ -348,7 +348,7 @@ bot.connectGateway().then((gateway) => {
 //log with human readable time
 function logWithTime(...inputs) {
 	const time = (new Date()).toLocaleString();
-	return console.log(`\x1b[90m[${time}] \x1b[0m]`, ...inputs);
+	return console.log(`\x1b[90m[${time}]\x1b[0m`, ...inputs);
 }
 
 //generate response
