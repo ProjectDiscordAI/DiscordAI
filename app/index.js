@@ -1,6 +1,5 @@
 /*
 DiscordAI
-v.1.0.0
 
 Simple Discord AI bot using Gemini API.
 Must install @jnode/cahce @jnode/requests @jnode/gemini @jnode/discord.
@@ -37,11 +36,25 @@ if (!config.core) config.core = {};
 if (!config.encryption) config.encryption = {};
 if (!config.custom) config.custom = {};
 
+//start message
+console.log(`\x1b[36m
+=====================================================================================\x1b[38;2;88;101;242m
+░███████   ░██                                                 ░██    ░███    ░██████
+░██   ░██                                                      ░██   ░██░██     ░██  
+░██    ░██ ░██ ░███████   ░███████   ░███████  ░██░████  ░████████  ░██  ░██    ░██  
+░██    ░██ ░██░██        ░██    ░██ ░██    ░██ ░███     ░██    ░██ ░█████████   ░██  
+░██    ░██ ░██ ░███████  ░██        ░██    ░██ ░██      ░██    ░██ ░██    ░██   ░██  
+░██   ░██  ░██       ░██ ░██    ░██ ░██    ░██ ░██      ░██   ░███ ░██    ░██   ░██  
+░███████   ░██ ░███████   ░███████   ░███████  ░██       ░█████░██ ░██    ░██ ░██████\x1b[36m
+=====================================================================================\x1b[0m`);
+console.log('\nWelcome to DiscordAI v1.0\n');
+
 //load encryption key
 let key;
 try {
 	key = fs.readFileSync(config.encryption.key_file ?? './encryption.key');
 } catch (err) {
+	console.log('Generating new encryption key for you...');
 	key = crypto.randomBytes(32); //generate a key
 	fs.writeFileSync(config.encryption.key_file ?? './encryption.key', key);
 }
@@ -72,21 +85,24 @@ const memoryCacher = new Cacher(undefined, config.core.memory_cache_timeout ?? 3
 //connect to discord
 bot.connectGateway().then((gateway) => {
 	//socket event log
-	gateway.on('socketOpened', () => { logWithTime('Opened.'); });
-	gateway.on('socketClosed', () => { logWithTime('Closed.'); });
-	gateway.on('timeout', () => { logWithTime('Timeout.'); });
-	gateway.on('READY', () => {
-		logWithTime('Ready.');
-		
+	gateway.on('socketOpened', () => { logWithTime('Connected to Discord.'); });
+	gateway.on('socketClosed', () => { logWithTime('Disconnect to Discord.'); });
+	gateway.on('timeout', () => { logWithTime('Timeouted while connect to discord.'); });
+	gateway.on('READY', (d) => {
+		logWithTime(`DiscordAI launched as ${d.user.username} (${d.user.id}).`);
+
+		//set bot id automatically
+		if (!config.bot.id) config.bot.id = d.user.id;
+
 		//bot status
 		if (config.bot.status) gateway.sendMessage(3, config.bot.status);
 	});
-	
+
 	//edit message cache
 	gateway.on('MESSAGE_UPDATE', (d) => {
 		messageCacher.edit(`${d.channel_id}-${d.id}`, d);
 	});
-	
+
 	//receive messages
 	gateway.on('MESSAGE_CREATE', (d) => {
 		//ignore bots, self and banned users
@@ -95,7 +111,7 @@ bot.connectGateway().then((gateway) => {
 			(d.author.id === config.bot.id) ||
 			((config.user.banned ?? []).includes(d.author.id))
 		) return;
-		
+
 		//check if mentioned
 		if (d.mentions.find(e => e.id === config.bot.id)) {
 			messageCacher.set(`${d.channel_id}-${d.id}`, d); //push cache
@@ -103,17 +119,17 @@ bot.connectGateway().then((gateway) => {
 		}
 		return;
 	});
-	
+
 	//interaction
 	gateway.on('INTERACTION_CREATE', async (d) => {
 		const user = (d.user ?? d.member.user); //get user object
-		
+
 		//ignore bots and banned users
 		if (
 			(user.bot && (!(config.user.allowed_bot ?? []).includes(user.id))) ||
 			((config.user.banned ?? []).includes(user.id))
 		) return;
-		
+
 		//handle interactions
 		if (d.type === 2) { //application commands
 			if (d.data.type === 3) { //message commands
@@ -123,18 +139,18 @@ bot.connectGateway().then((gateway) => {
 					bot.apiRequest('POST', `/interactions/${d.id}/${d.token}/callback`, {
 						type: 5, data: { flags: 1 << 6 }
 					});
-					
+
 					//get target message
 					const message = await getMessage(d.channel_id, d.data.target_id);
-					
+
 					//generate response
 					await generate(message, user);
-					
+
 					//delete loading
 					bot.apiRequest(
 						'DELETE', `/webhooks/${config.bot.id}/${d.token}/messages/@original`
 					);
-					
+
 					return;
 				} else if (d.data.name === (config.core.message_debug_command ?? 'Debug')) { //message debugger
 					//check permission
@@ -143,20 +159,20 @@ bot.connectGateway().then((gateway) => {
 						bot.apiRequest('POST', `/interactions/${d.id}/${d.token}/callback`, {
 							type: 5, data: { flags: 1 << 6 }
 						});
-						
+
 						//get target message
 						const message = await getMessage(d.channel_id, d.data.target_id);
-						
+
 						//attachments for result
 						let attachments = [];
-						
+
 						//message json object
 						attachments.push({
 							name: 'message.json',
 							type: 'application/json',
 							data: Buffer.from(JSON.stringify(message, null, 2), 'utf8')
 						});
-						
+
 						//decrypted daied
 						for (let i of message.attachments) {
 							if (i.filename.endsWith('.daied')) { //system file, DiscordAIEncryptedData
@@ -187,7 +203,7 @@ bot.connectGateway().then((gateway) => {
 								}
 							}
 						}
-						
+
 						//hidden file in embed
 						if (message.embeds) {
 							for (let i of message.embeds) {
@@ -204,12 +220,12 @@ bot.connectGateway().then((gateway) => {
 								}
 							}
 						}
-						
+
 						//response
 						let response = {
 							content: '```\nMESSAGE DEBUGGER\n```'
 						};
-						
+
 						//set attachments to response
 						response.attachments = [];
 						for (let i = 0; i < attachments.length; i++) {
@@ -219,10 +235,10 @@ bot.connectGateway().then((gateway) => {
 								contet_type: attachments[i].type
 							});
 						}
-						
+
 						//send multi part request
 						res = await bot.apiRequestMultipart('PATCH', `/webhooks/${config.bot.id}/${d.token}/messages/@original`, response, attachments);
-						
+
 						return;
 					} else {
 						//reject
@@ -234,7 +250,7 @@ bot.connectGateway().then((gateway) => {
 							}
 						});
 					}
-					
+
 					return;
 				}
 			}
@@ -244,37 +260,37 @@ bot.connectGateway().then((gateway) => {
 				bot.apiRequest('POST', `/interactions/${d.id}/${d.token}/callback`, {
 					type: 5, data: { flags: 1 << 6 }
 				});
-				
+
 				//generate response
 				await generate(d.message, user);
-				
+
 				//delete loading
 				bot.apiRequest(
 					'DELETE', `/webhooks/${config.bot.id}/${d.token}/messages/@original`
 				);
-				
+
 				return;
 			} else if (d.data.custom_id === 'Ignore') { //Ignore button
 				//start loading in secret
 				bot.apiRequest('POST', `/interactions/${d.id}/${d.token}/callback`, {
 					type: 6, data: { flags: 1 << 6 }
 				});
-				
+
 				//clear button
 				if (d.message.author.id === config.bot.id) {
 					bot.apiRequest('PATCH', `/channels/${d.message.channel_id}/messages/${d.message.id}`, { components: [] });
 				}
-				
+
 				return;
 			} else if (d.data.custom_id === 'GetFCInfo') { //get function call info
 				//start loading
 				bot.apiRequest('POST', `/interactions/${d.id}/${d.token}/callback`, {
 					type: 5, data: { flags: 1 << 6 }
 				});
-				
+
 				//get target message
 				const message = await getMessage(d.message.channel_id, d.message.id);
-				
+
 				//decrypted daied
 				let f = {};
 				for (let i of message.attachments) {
@@ -283,7 +299,7 @@ bot.connectGateway().then((gateway) => {
 						f = await getFile(i.url, `${message.channel_id}-${message.id}-f.daied`);
 					}
 				}
-				
+
 				//hidden file in embed
 				if (message.embeds) {
 					for (let i of message.embeds) {
@@ -295,7 +311,7 @@ bot.connectGateway().then((gateway) => {
 						}
 					}
 				}
-				
+
 				//push to embed fields
 				let fields = [];
 				if (f.c) {
@@ -310,18 +326,18 @@ bot.connectGateway().then((gateway) => {
 						}
 					}
 				}
-				
+
 				//send embed
 				res = await bot.apiRequest(
 					'PATCH', `/webhooks/${config.bot.id}/${d.token}/messages/@original`, {
-						embeds: [{
-							title: config.custom.info_embed_title ?? 'Called Actions Info',
-							fields: fields,
-							...(config.custom.info_embed ?? {})
-						}]
-					}
+					embeds: [{
+						title: config.custom.info_embed_title ?? 'Called Actions Info',
+						fields: fields,
+						...(config.custom.info_embed ?? {})
+					}]
+				}
 				);
-				
+
 				return;
 			}
 		}
@@ -331,24 +347,25 @@ bot.connectGateway().then((gateway) => {
 
 //log with human readable time
 function logWithTime(...inputs) {
-	return console.log(...inputs, (new Date()).toLocaleString(config.core.time_language, { weekday: 'long',year: 'numeric', month: 'long', day: 'numeric', hour: 'numeric', minute: "numeric", second: 'numeric' }));
+	const time = (new Date()).toLocaleString();
+	return console.log(`\x1b[90m[${time}] \x1b[0m]`, ...inputs);
 }
 
 //generate response
 async function generate(message, author) {
 	author = author ?? message.author;
-	
+
 	//response message object
 	let response = {
 		allowed_mentions: {
-			parse: [ 'users' ],
-			users: new Set([ ...(config.user.allowed_bot), ...(config.user.allowed_mentions) ]),
+			parse: ['users'],
+			users: new Set([...(config.user.allowed_bot), ...(config.user.allowed_mentions)]),
 			replied_user: !message.author.bot && (author.id === message.author.id)
 		},
 		message_reference: { message_id: message.id },
 		embeds: []
 	};
-	
+
 	//define datas
 	let collected, contents, cf;
 	let attachments = [];
@@ -358,7 +375,8 @@ async function generate(message, author) {
 	let embedsOriginDescription = '';
 	let autoRun = true;
 	let actionDescription;
-	
+	let log = '';
+
 	//catch errors
 	try {
 		//collect contents
@@ -366,10 +384,13 @@ async function generate(message, author) {
 		contents = collected.contents;
 		cf = collected.f ?? {};
 		message.uid = collected.uid ?? message.author.id;
-		
+
+		//add log
+		log += `\x1b[1m${author.username}\x1b[0m (\x1b[1m${author.id}\x1b[0m) trigger a response with \x1b[1m${contents.length}\x1b[0m messages.\n`;
+
 		//time
-		if (!config.core.no_system_message) contents.unshift([ true, `---- SYSTEM_MESSAGE ENVIORMENT_INFO CURRENT_TIME:"${(new Date()).toLocaleString(config.core.time_language, { weekday: 'long',year: 'numeric', month: 'long', day: 'numeric', hour: 'numeric', minute: "numeric", second: 'numeric' })}" ----` ]);
-		
+		if (!config.core.no_system_message) contents.unshift([true, `---- SYSTEM_MESSAGE ENVIORMENT_INFO CURRENT_TIME:"${(new Date()).toLocaleString(config.core.time_language, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour: 'numeric', minute: "numeric", second: 'numeric' })}" ----`]);
+
 		//run function calls
 		if (cf.c) {
 			//get function calls
@@ -382,9 +403,9 @@ async function generate(message, author) {
 					});
 				}
 			}
-			
+
 			//run and push content
-			const extraData = { contents, response, attachments, bot, message, author, config, daiedToJson, jsonToDaied, getMessage, getFile, deleteMemory, addMemory, getMemory, extendContent: [ true ] }; //extra data
+			const extraData = { contents, response, attachments, bot, message, author, config, daiedToJson, jsonToDaied, getMessage, getFile, deleteMemory, addMemory, getMemory, extendContent: [true] }; //extra data
 			for (let i of functionCalls) { //run every function with await
 				functionResponseParts.push({ //push parts
 					functionResponse: {
@@ -392,6 +413,7 @@ async function generate(message, author) {
 						response: await i.function.func(i.args, extraData) //run target function
 					}
 				});
+				log += `\t\x1b[1m${i.name}\x1b[0m has been executed.\n`;
 			}
 			f.r = { role: 'function', parts: functionResponseParts };
 			contents.push(f.r); //push to contents
@@ -399,18 +421,18 @@ async function generate(message, author) {
 				f.re = extraData.extendContent;
 				contents.push(extraData.extendContent);
 			}
-			
+
 			actionDescription = extraData.actionDescription; //set action description
-			
+
 			//clear button
 			if (message.author.id === config.bot.id) {
 				bot.apiRequest('PATCH', `/channels/${message.channel_id}/messages/${message.id}`, { components: [] });
 			}
 		}
-		
+
 		//start typing
 		bot.apiRequest('POST', `/channels/${message.channel_id}/typing`, {});
-		
+
 		//generate with memory
 		if (!config.core.no_memory_system && (author.id === message.uid)) {
 			const memory = memoryToReadable(author.id, await getMemory(author.id));
@@ -427,7 +449,7 @@ async function generate(message, author) {
 		} else {
 			result = await model.generate(contents);
 		}
-		
+
 		//check long text
 		if (result.text.length >= 2000) {
 			//push to attachments
@@ -440,7 +462,7 @@ async function generate(message, author) {
 			//send as normal message
 			response.content = result.text;
 		}
-		
+
 		//check function calls
 		if (result.functionCalls.length > 0) {
 			const extraData = { contents, response, attachments, bot, message, author, config, daiedToJson, jsonToDaied, getMessage, getFile, deleteMemory, addMemory, getMemory, extendContent: [] }; //extra data
@@ -451,6 +473,7 @@ async function generate(message, author) {
 					await result.functionCalls[i].function.func(result.functionCalls[i].args, extraData); //run target function
 					partRemoves.unshift(result.functionCalls[i].partIndex);
 					callRemoves.unshift(i);
+					log += `\t\x1b[1m${i.name}\x1b[0m has been executed silently.\n`;
 				} else {
 					f.c = result.content;
 				}
@@ -458,13 +481,13 @@ async function generate(message, author) {
 			}
 			partRemoves.map((e) => { result.content.parts.splice(e, 1); }); //delete the parts
 			callRemoves.map((e) => { result.functionCalls.splice(e, 1); }); //delete the parts
-			
+
 			actionDescription = extraData.actionDescription; //set action description
 		}
-		
+
 		//anti infinite function call
 		if (f.r && f.c) autoRun = false;
-		
+
 		//push fr fc to attachments
 		if (f.r || f.c) {
 			attachments.unshift({
@@ -472,7 +495,7 @@ async function generate(message, author) {
 				type: 'binary/octed-stream',
 				data: jsonToDaied(f)
 			});
-			
+
 			//function call embed
 			response.embeds.push({
 				description: (actionDescription) ?? (
@@ -491,7 +514,7 @@ async function generate(message, author) {
 				...config.custom.f_embed
 			});
 		}
-		
+
 		//function call buttons
 		if (f.c && !autoRun) {
 			response.components = [{
@@ -521,7 +544,7 @@ async function generate(message, author) {
 	} catch (err) {
 		//log error
 		console.error(err);
-		
+
 		//too many request error
 		if (err.code === 429 || err.code === 503) {
 			response.embeds.push({
@@ -545,7 +568,7 @@ async function generate(message, author) {
 				},
 				...(config.custom.error_embed)
 			});
-			
+
 			let e = {
 				name: err.name,
 				message: err.message,
@@ -554,7 +577,7 @@ async function generate(message, author) {
 				contents: contents
 			};
 			for (let i in err) e[i] = err[i];
-			
+
 			attachments.push({ //push error log to attachments
 				name: 'e.daied',
 				type: 'binary/octed-stream',
@@ -574,21 +597,24 @@ async function generate(message, author) {
 					contet_type: attachments[i].type
 				});
 			}
-			
+
 			//send multi part request
 			res = await bot.apiRequestMultipart('POST', `/channels/${message.channel_id}/messages`, response, attachments);
 		} else {
 			//send message
 			res = await bot.apiRequest('POST', `/channels/${message.channel_id}/messages`, response);
 		}
-		
+
+		//log
+		console.log(log);
+
 		//get json response
 		res = res.json();
-		
+
 		//write cache
 		messageCacher.set(`${res.channel_id}-${res.id}`, res);
 		if (f) fileCacher.set(`${res.channel_id}-${res.id}-f.daied`, f);
-		
+
 		//auto run
 		if (f.c && autoRun) {
 			generate(res, author);
@@ -599,20 +625,20 @@ async function generate(message, author) {
 
 async function collectContents(message, contents = [], uid) {
 	let parts = [];
-	let modelFileParts = [ true ]; //a user turn
+	let modelFileParts = [true]; //a user turn
 	let text = message.content ?? '';
-	
+
 	//check forward message or normal message
 	if (message.isForwarding) {
 		parts.push(true); //forward message is always user trun for gemini api
 		if (!config.noSystemMsg) parts.push('---- SYSTEM_MESSAGE FORWARDED_MESSAGE ----');
 	}
-	
+
 	//check message author
 	const isUser = message.isForwarding ? true : (message.author.id !== config.bot.id);
 	if (isUser && !uid && !message.isForwarding) uid = message.author.id;
 	parts.push(isUser); //set content role
-	
+
 	//add system message
 	if (!config.core.no_system_message && isUser && !message.isForwarding) {
 		//author info
@@ -621,7 +647,7 @@ async function collectContents(message, contents = [], uid) {
 		parts.push(
 			'---- SYSTEM_MESSAGE MESSAGE_INFO ' +
 			`MESSAGE_ID:"${message.id} ` +
-			`MESSAGE_TIME:"${(new Date()).toLocaleString(config.core.time_language, { weekday: 'long',year: 'numeric', month: 'long', day: 'numeric', hour: 'numeric', minute: "numeric", second: 'numeric' })}" ` +
+			`MESSAGE_TIME:"${(new Date()).toLocaleString(config.core.time_language, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour: 'numeric', minute: "numeric", second: 'numeric' })}" ` +
 			`AUTHOR_ROLE:"${urole} ` +
 			`AUTHOR_DISPLAY_NAME:"${message.author.global_name}" ` +
 			`AUTHOR_ACCOUNT_NAME:"${message.author.username}" ` +
@@ -629,7 +655,7 @@ async function collectContents(message, contents = [], uid) {
 			'----\n'
 		);
 	}
-	
+
 	//scan attachments
 	let f = {};
 	if (message.attachments) {
@@ -662,10 +688,10 @@ async function collectContents(message, contents = [], uid) {
 			}
 		}
 	}
-	
+
 	//push text content
 	if (text) parts.push(text);
-	
+
 	//hidden file in embed
 	if (message.embeds && !isUser) {
 		for (let i of message.embeds) {
@@ -677,13 +703,13 @@ async function collectContents(message, contents = [], uid) {
 			}
 		}
 	}
-	
+
 	//push content
 	contents.unshift(f.c ?? parts); //push function call
 	if (modelFileParts.length > 1) contents.unshift(modelFileParts); //push files in model turn
 	if (f.re) contents.unshift(f.re); //push function response extend content
 	if (f.r) contents.unshift(f.r); //push function response
-	
+
 	//load reference
 	let reference;
 	if (message.message_reference) {
@@ -702,7 +728,7 @@ async function collectContents(message, contents = [], uid) {
 		}
 		uid = (await collectContents(reference, contents, uid)).uid; //collect reference
 	}
-	
+
 	//return
 	return { contents, f, uid };
 }
@@ -734,14 +760,14 @@ function getFile(fileUrl, daied) {
 function jsonToDaied(jsonData) {
 	const iv = crypto.randomBytes(16);
 	const cipher = crypto.createCipheriv('aes-256-cbc', key, iv);
-	return Buffer.concat([ iv, cipher.update(JSON.stringify(jsonData), 'utf8'), cipher.final() ]);
+	return Buffer.concat([iv, cipher.update(JSON.stringify(jsonData), 'utf8'), cipher.final()]);
 }
 
 //decrypt .daied to json
 function daiedToJson(data) {
 	const iv = data.subarray(0, 16);
 	const decipher = crypto.createDecipheriv('aes-256-cbc', key, iv);
-	return JSON.parse(Buffer.concat([ decipher.update(data.subarray(16)), decipher.final() ]));
+	return JSON.parse(Buffer.concat([decipher.update(data.subarray(16)), decipher.final()]));
 }
 
 //get memory
@@ -765,7 +791,7 @@ async function getMemory(uid) {
 async function addMemory(uid, memory) {
 	const memories = await getMemory(uid);
 	memories.push({
-		time: (new Date()).toLocaleString(config.core.time_language, { weekday: 'long',year: 'numeric', month: 'long', day: 'numeric', hour: 'numeric', minute: "numeric", second: 'numeric' }),
+		time: (new Date()).toLocaleString(config.core.time_language, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour: 'numeric', minute: "numeric", second: 'numeric' }),
 		content: memory
 	});
 	await saveMemory(uid);
@@ -792,13 +818,13 @@ function memoryToReadable(uid, memories) {
 	if (!memories || memories.length === 0) {
 		return "No memory.";
 	}
-	
+
 	let readableMemories = memories.map((memory, index) => {
 		const time = memory.time;
 		const content = memory.content;
 		return `${index}. [${time}] ${content}`;
 	}).join('\n\n');
-	
+
 	return readableMemories;
 }
 
