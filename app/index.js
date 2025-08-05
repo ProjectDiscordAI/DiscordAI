@@ -347,7 +347,7 @@ bot.connectGateway().then((gateway) => {
 
 //log with human readable time
 function logWithTime(...inputs) {
-	const time = (new Date()).toLocaleString();
+	const time = (new Date()).toLocaleString(config.core.time_language, { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
 	return console.log(`\x1b[90m[${time}]\x1b[0m`, ...inputs);
 }
 
@@ -386,7 +386,7 @@ async function generate(message, author) {
 		message.uid = collected.uid ?? message.author.id;
 
 		//add log
-		log += `\x1b[1m${author.username}\x1b[0m (\x1b[1m${author.id}\x1b[0m) trigger a response with \x1b[1m${contents.length}\x1b[0m messages.\n`;
+		log += `\x1b[1m${author.username}\x1b[0m (\x1b[1m${author.id}\x1b[0m) trigger a response with \x1b[1m${contents.length}\x1b[0m contents.\n`;
 
 		//time
 		if (!config.core.no_system_message) contents.unshift([true, `---- SYSTEM_MESSAGE ENVIORMENT_INFO CURRENT_TIME:"${(new Date()).toLocaleString(config.core.time_language, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour: 'numeric', minute: "numeric", second: 'numeric' })}" ----`]);
@@ -413,7 +413,7 @@ async function generate(message, author) {
 						response: await i.function.func(i.args, extraData) //run target function
 					}
 				});
-				log += `\t\x1b[1m${i.name}\x1b[0m has been executed.\n`;
+				log += `                      \t\x1b[1m${i.name}\x1b[0m has been executed.\n`;
 			}
 			f.r = { role: 'function', parts: functionResponseParts };
 			contents.push(f.r); //push to contents
@@ -473,7 +473,7 @@ async function generate(message, author) {
 					await result.functionCalls[i].function.func(result.functionCalls[i].args, extraData); //run target function
 					partRemoves.unshift(result.functionCalls[i].partIndex);
 					callRemoves.unshift(i);
-					log += `\t\x1b[1m${result.functionCalls[i].name}\x1b[0m has been executed silently.\n`;
+					log += `                      \t\x1b[1m${result.functionCalls[i].name}\x1b[0m has been executed silently.\n`;
 				} else {
 					f.c = result.content;
 				}
