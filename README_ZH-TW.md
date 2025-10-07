@@ -1,8 +1,11 @@
+![Banner](!docs/banner.png)
+
 # Project DiscordAI
 
 > Discord AI bot powered by Gemini API.
 
 ## 簡介
+
 **DiscordAI** 是一個強大的 Discord 聊天機器人專案，使用來自 Google 的 Gemini API。
 
 這是一個面向一般 Node.js 開發者的專案，讓具有一定基礎的開發者可以透過簡單的設定，輕易的搭建強大的聊天機器人。
@@ -26,8 +29,9 @@
 ### 2. 下載程式碼
 
 你可以使用 Git 來載入 DiscordAI，在目標檔案夾執行以下指令：
+
 ```bash
-git clone https://github.com/JustappleJust/DiscordAI.git
+git clone https://github.com/ProjectDiscordAI/DiscordAI.git
 cd DiscordAI
 npm install
 ```
@@ -57,7 +61,6 @@ npm install
 
 > 我們將在對於 `config.json` 的敘述中使用 JavaScript 語法來表示資料的位置，如果您不了解 JavaScript 與 JSON 檔案，建議先參考 [MDN Web Docs](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Grammar_and_types) 等資源來學習 JavaScript 與JSON。
 
-
 2. 將 `.bot.token` 替換為先前取得的 Discord Bot Token（字串）。
 3. 將 `.bot.id` 替換為你的 Discord 機器人 ID，如果你不知道該怎麼找到 Discord 機器人 ID 可以參考 [Discord 官方部落格](https://support.discord.com/hc/en-us/articles/206346498-Where-can-I-find-my-User-Server-Message-ID)。
 4. 將 `.ai.key` 替換為你先前取得的 Gemini API Key。
@@ -79,19 +82,23 @@ npm install
 
 1. 確認你的機器人在線。
 2. 發送以下訊息給機器人：
+
 ```prompt
 @YOUR_BOT
 Make a discord_api_request:
 POST /applications/YOUR_BOT_ID/commands
 { "name": "Generate", "type": 3 }
 ```
+
 以及
+
 ```prompt
 @YOUR_BOT
 Make a discord_api_request:
 POST /applications/YOUR_BOT_ID/commands
 { "name": "Debug", "type": 3 }
 ```
+
 3. 點擊 `Accept` 同意執行。
 4. 如果機器人表示執行成功，請重新啟動妳的 Discord 應用程式來刷新指令列表，接下來你可以透過訊息選單的指令讓機器人回覆某一則訊息，或是進行除錯。
 
@@ -100,9 +107,9 @@ POST /applications/YOUR_BOT_ID/commands
 ## 設定系統提示詞
 
 > System instructions let you steer the behavior of a model based on your specific needs and use cases.
-> 
+>
 > When you set a system instruction, you give the model additional context to understand the task, provide more customized responses, and adhere to specific guidelines over the full user interaction with the model. You can also specify product-level behavior by setting system instructions, separate from prompts provided by end users.
-> 
+>
 > \- [Google AI for Developers](https://ai.google.dev/gemini-api/docs/system-instructions)
 
 簡單來說，系統指示包含了機器人的人物設定、動作執行方式、知識庫等資料，他對於語言模型的影響比使用者的對話來高得多，並且會被區分出來。
@@ -124,6 +131,7 @@ POST /applications/YOUR_BOT_ID/commands
 如果您未更動 `app/functions.js`，你只需要在 `app/functions/` 下建立一個 `.js` 檔案，檔案名稱不會有任何影響，但我們建議您設定為與該函式的名稱。
 
 輸入以下程式碼：
+
 ```js
 //導入 JustGemini
 const gemini = require('@jnode/gemini');
@@ -169,6 +177,7 @@ module.exports = doSomething;
 ### `gemini.Function`
 
 `gemini.Function()` 建構式有四個參數，依序如下：
+
 - `name`：字串，函式名稱，￼只能由 `a-z` `A-Z` `0-9` `-` `_` 組成，最多 63 位。
 - `description`：字串，函式說明。
 - `parameters`：`null` 或物件（參考 [Gemini API 說明文件](https://ai.google.dev/api/caching#Schema)），函式輸入參數。
@@ -189,6 +198,7 @@ module.exports = doSomething;
 返回 `null` 或任意物件作為執行結果。
 
 ### 額外參數
+
 `.dai_name`：字串，顯示給使用者的可閱讀名稱。
 `dai_fcInfo(d)`：函式，將呼叫參數轉換成使用者可閱讀的說明（字串）。
 `dai_fcInfoShort(d)`：函式，將呼叫參數轉換成使用者可閱讀的簡短說明（字串）。
@@ -238,7 +248,7 @@ module.exports = doSomething;
 - `banned` (陣列)：
   - **選填**。被封鎖的使用者 ID 陣列。例如：`["1234567890"]`。
 - `admin` (陣列)：
-    *   **選填**。管理員使用者 ID 陣列，管理員可使用除錯指令及部分特殊動作。例如：`["1234567890"]`。
+  - **選填**。管理員使用者 ID 陣列，管理員可使用除錯指令及部分特殊動作。例如：`["1234567890"]`。
 - `allowed_bot` (陣列)：
   - **選填**。允許互動的機器人 ID 陣列。例如：`["1234567890"]`。
 - `allowed_mentions` (陣列)：
@@ -283,13 +293,13 @@ module.exports = doSomething;
 - `info_embed` (物件)：
   - **選填**。功能資訊嵌入的額外選項， [Embed Object](https://discord.com/developers/docs/resources/message#embed-object) 。
 - `finish_before` (字串)：
-    *   **選填**。在收到 `x` 個動作回應前顯示的文字，預設為 `Receive `。
+  - **選填**。在收到 `x` 個動作回應前顯示的文字，預設為 `Receive`。
 - `finish_after` (字串)：
-  - **選填**。在收到 `x` 個動作回應後顯示的文字，預設為  ` action response(s).\n`。
+  - **選填**。在收到 `x` 個動作回應後顯示的文字，預設為  `action response(s).\n`。
 - `request_before` (字串)：
-  - **選填**。在執行動作前顯示的`執行動作：某某、某某。`中的`執行動作`，預設為 `Run: `。
+  - **選填**。在執行動作前顯示的`執行動作：某某、某某。`中的`執行動作`，預設為 `Run:`。
 - `request_split` (字串)：
-  - **選填**。在執行動作前顯示的`執行動作：某某、某某。`中的分隔符（`、`），預設為 `, `。
+  - **選填**。在執行動作前顯示的`執行動作：某某、某某。`中的分隔符（`、`），預設為 `,`。
 - `request_after` (字串)：
   - **選填**。在執行動作前顯示的`執行動作：某某、某某。`中的`。`，預設為 `.`。
 - `f_embed` (物件)：
