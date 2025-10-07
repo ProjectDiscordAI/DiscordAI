@@ -1,30 +1,27 @@
 {
   "name": "@justapple/discordai",
-  "version": "1.0.27",
-  "description": "Powerful Discord AI bot by Gemini API",
+  "version": "2.0.0",
+  "description": "Powerful Discord AI bot.",
   "keywords": [
-    "Discord",
     "Discord",
     "Bot",
     "AI",
     "Gemini",
-    "Gemini",
-    "API",
+    "LLM",
     "JustApple",
     "JustNode",
-    "DiscordAI",
-    "robotics"
+    "DiscordAI"
   ],
-  "homepage": "https://github.com/JustappleJust/DiscordAI#readme",
+  "homepage": "https://github.com/ProjectDiscordAI/DiscordAI#readme",
   "bugs": {
-    "url": "https://github.com/JustappleJust/DiscordAI/issues"
+    "url": "https://github.com/ProjectDiscordAI/DiscordAI/issues"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/JustappleJust/DiscordAI.git"
+    "url": "git+https://github.com/ProjectDiscordAI/DiscordAI.git"
   },
   "license": "Apache-2.0",
-  "author": "JustApple <apple@justapple.tw>",
+  "author": "JustApple <ja@justapple.tw>",
   "type": "commonjs",
   "main": "app/index.js",
   "scripts": {
