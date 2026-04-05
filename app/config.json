@@ -1,0 +1,7 @@
+{
+    "skipUpdateCheck": false,
+    "env": "/Users/mini/Desktop/Production/Testing/dai.env.json",
+    "bot": {
+        "token": "env:discord_token"
+    }
+}

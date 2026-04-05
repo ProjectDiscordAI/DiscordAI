@@ -1,5 +1,7 @@
 
 /node_modules
-package-lock.json
 app/encryption.key
 .DS_Store
+/app/log
+/app/db
+app/.env.json
