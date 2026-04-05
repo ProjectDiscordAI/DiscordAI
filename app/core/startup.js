@@ -21,7 +21,7 @@ import jn_discord from '@jnode/discord';
 import jn_dble from '@jnode/db/dble';
 const { request } = jn_request;
 const { Client } = jn_discord;
-const { DBLEFile, DBLEField, DBLEBigInt64Field, DBLEDateField, DBLEAnyField } = jn_dble;
+const { DBLEFile, DBLEDoubleField, DBLEBigInt64Field, DBLEAnyField, DBLEUInt32Field } = jn_dble;
 
 // constants
 let { version } = require('./../../package.json');
@@ -64,6 +64,13 @@ try {
     loadingConfig = 'log config';
     config.log = config.log ?? {};
     config.log.folder = config.log.folder ?? './log';
+    config.log.gatewayLog = config.log.gatewayLog ?? true;
+    console.log(`\x1b[90m  - \x1b[0mLog config loaded.\x1b[0m`);
+
+    // instruction configs
+    loadingConfig = 'instructions config';
+    config.instructions = config.instructions ?? {};
+    config.instructions.core = config.instructions.core ?? './instructions/core.md';
     console.log(`\x1b[90m  - \x1b[0mLog config loaded.\x1b[0m`);
 
     // encryption configs
@@ -81,7 +88,9 @@ try {
     // credit configs
     loadingConfig = 'credit config';
     config.credit = config.credit ?? {};
-    config.credit.daily = config.credit.daily ?? 100_000000000n;
+    config.credit.daily = config.credit.daily ?? 120_000000000n;
+    config.credit.hourly = config.credit.daily / 24n;
+    config.credit.regist_paid = config.credit.regist_paid ?? 0n;
     console.log(`\x1b[90m  - \x1b[0mCredit config loaded.\x1b[0m`);
 
     // policy config
@@ -90,10 +99,32 @@ try {
     config.policy.update = config.policy.update ?? 10;
     console.log(`\x1b[90m  - \x1b[0mPolicy config loaded.\x1b[0m`);
 
+    // cache config
+    loadingConfig = 'cache config';
+    config.cache = config.cache ?? {};
+    config.cache.messageCacherOptions = config.cache.messageCacherOptions;
+    config.cache.daiv2CacherOptions = config.cache.daiv2CacherOptions;
+    config.cache.memoryCacherOptions = config.cache.memoryCacherOptions;
+    console.log(`\x1b[90m  - \x1b[0mPolicy config loaded.\x1b[0m`);
+
+    // users config
+    loadingConfig = 'users config';
+    config.users = config.users ?? {};
+    config.users.allowedBots = new Set(config.users.allowedBots);
+    config.users.banned = new Set(config.users.banned);
+    console.log(`\x1b[90m  - \x1b[0mUsers config loaded.\x1b[0m`);
+
+    // ui config
+    loadingConfig = 'UI config';
+    config.ui = config.ui ?? {};
+    config.ui.tos = config.ui.tos ?? 'https://github.com/ProjectDiscordAI/DiscordAI/tree/v2/tos.md';
+    console.log(`\x1b[90m  - \x1b[0mUI config loaded.\x1b[0m`);
+
     // discord bot configs
     loadingConfig = 'bot config';
     config.bot = config.bot ?? {};
     if (!config.bot.token) throw new Error('Bot token (.bot.token) is required.');
+    config.bot.clientOptions = config.bot.clientOptions ?? {};
     config.bot.gatewayOptions = config.bot.gatewayOptions ?? {};
     console.log(`\x1b[90m  - \x1b[0mBot config loaded.\x1b[0m`);
 } catch (err) {
@@ -164,13 +195,14 @@ try {
         try {
             userDB = await DBLEFile.create(userDBPath, {
                 fields: [
-                    new DBLESnowflakeField('id', true),
-                    new DBLEBigInt64Field('free_credits'),
-                    new DBLEBigInt64Field('paid_credits'),
-                    new DBLEDateField('free_update'),
-                    new DBLEDateField('policy_accept'),
-                    new DBLEDateField('banned_until'),
-                    new DBLEAnyField(8, 'flags')
+                    new DBLESnowflakeField('id', true),    // discord user id
+                    new DBLEBigInt64Field('free_credits'), // free daily credits
+                    new DBLEBigInt64Field('paid_credits'), // paid credits
+                    new DBLEUInt32Field('free_update'),    // last free credit update time in hour (unix epoch)
+                    new DBLEDoubleField('policy_accept'),  // last policy accept time in ms (unix epoch)
+                    new DBLEDoubleField('banned_until'),   // banned time in ms (unix epoch)
+                    new DBLEAnyField(8, 'flags'),          // account flags
+                    new DBLEUInt32Field('RSV')           // reserved
                 ]
             });
             console.log(`\x1b[90m  - \x1b[0mUser database created.\x1b[0m`);
@@ -185,18 +217,52 @@ try {
 }
 console.log(`\x1b[90m  - \x1b[32mComplete.\x1b[0m`);
 
+// read or create file
+async function readOrCreateFile(path, create = '') {
+    try {
+        return await fs.readFile(path);
+    } catch (err) {
+        if (err.code === 'ENOENT') {
+            create = Buffer.isBuffer(create) ? create : Buffer.from(create);
+            await fs.writeFile(path, create);
+            return create;
+        }
+        throw err;
+    }
+};
+
+// load instructions
+console.log(`\x1b[90m> \x1b[0mLoading instructions...`);
+export const instructions = {};
+let loadingInstruction = 'instruction';
+try {
+    loadingInstruction = 'core instruction (instructions/core.md)';
+    instructions.core = await readOrCreateFile(config.instructions.core, 'You are a helpful assistant.');
+    console.log(`\x1b[90m  - \x1b[0mCore instruction loaded.\x1b[0m`);
+} catch (err) {
+    console.error(`\x1b[90m  - \x1b[31mError while loading ${loadingInstruction}: ${err.message}\x1b[0m`);
+    process.exit(1);
+}
+console.log(`\x1b[90m  - \x1b[32mComplete.\x1b[0m`);
+
 // connect to discord
 console.log(`\x1b[90m> \x1b[0mConnecting to Discord...`);
-export const client = new Client(config.bot.token.startsWith('env:') ? config.env[config.bot.token.slice(4)] : config.bot.token);
+export const client = new Client(
+    config.bot.token.startsWith('env:') ? config.env[config.bot.token.slice(4)] : config.bot.token,
+    config.bot.clientOptions
+);
 export let gateway;
 export let user;
 try {
     gateway = client.gateway({ intents: 0b1001001000010000, ...config.bot.gatewayOptions });
 
     user = (await new Promise((resolve, reject) => {
-        gateway.on('READY', resolve);
-        gateway.on('error', reject);
+        gateway.once('READY', resolve);
+        gateway.once('error', reject);
     })).user;
+
+    // set status
+    if (config.bot.status) gateway.sendMessage(3, config.bot.status);
 } catch (err) {
     console.error(`\x1b[90m  - \x1b[31mFailed to connect to Discord: ${err.message}\x1b[0m`);
     process.exit(1);

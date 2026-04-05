@@ -17,10 +17,12 @@ export class CacheManager {
         this.gcPad = options.gcPad || Math.ceil(this.max * 0.3); // padding fields after gc
     }
 
+    // get the value of the key
     set(key, value) {
         this.map.set(key, value);
     }
 
+    // get the value of the key
     async get(key, loader = () => { }) {
         const value = this.map.get(key) ?? await loader();
 
@@ -33,8 +35,14 @@ export class CacheManager {
         return value;
     }
 
+    // check if the key exists
     has(key) {
         return this.map.has(key);
+    }
+
+    // edit the key's value if it exists
+    edit(key, value) {
+        if (this.map.has(key)) this.map.set(key, value);
     }
 
     _gc() {

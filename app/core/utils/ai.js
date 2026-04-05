@@ -77,3 +77,12 @@ export class DAIRemoteFunction extends AIRemoteFunction {
         return super.call(args, ctx._remoteContext);
     }
 }
+
+// discord ai toolkit
+export class DAIToolkit {
+    constructor(name, description, tools = []) {
+        this.name = name;
+        this.description = description;
+        this.kit = tools;
+    }
+}

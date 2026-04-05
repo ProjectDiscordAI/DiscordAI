@@ -1,5 +1,5 @@
 {
-  "name": "@justapple/discordai",
+  "name": "discordai",
   "version": "2.0.0",
   "description": "Powerful Discord AI bot.",
   "keywords": [
@@ -24,6 +24,9 @@
   "author": "JustApple <ja@justapple.tw>",
   "type": "module",
   "main": "app/index.js",
+  "exports": {
+    "./utils": "./app/core/utils/index.js"
+  },
   "scripts": {
     "start": "node .",
     "test": "echo \"Hello, DiscordAI.\"",
