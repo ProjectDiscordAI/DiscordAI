@@ -9,14 +9,16 @@ by JustApple
 import fs from 'fs/promises';
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
+import qs from 'querystring';
 
 // change working directory to app
 process.chdir(dirname(fileURLToPath(import.meta.url)));
 
 // startup and load discord ai tools
-import { config, client, gateway, user, userDB, encryptionKey, instructions } from './core/startup.js';
+import { config, client, gateway, user, userDB, encryptionKey, instructions, getUser } from './core/startup.js';
 import { CacheManager } from './core/utils/cache.js';
 import * as ui from './core/ui.js';
+import * as interactions from './core/interactions/index.js';
 
 // logger
 await import('./core/logger.js');
@@ -54,55 +56,75 @@ gateway.on('MESSAGE_CREATE', async (d) => {
     await generate(d, d.author);
 });
 
-// get user data
-async function getUser(id) {
-    // load user from database
-    let user = (await userDB.readLineByField('id', id))?.fields;
+// receive interactions
+gateway.on('INTERACTION_CREATE', async (d) => {
+    const author = d.user || d.member.user;
+    if (config.users.banned.has(author.id)) return; // hardcoded banned
 
-    // current time
-    const now = Date.now();
-    const nowHour = Math.floor(now / 3600000);
+    if (d.type === 2) { // application command
+        // check if command exists
+        if (!interactions.command[d.data.name]) return;
 
-    // new user
-    if (!user) {
-        user = {
-            id: id,
-            free_credits: config.credit.daily,
-            paid_credits: config.credit.regist_paid,
-            free_update: nowHour,
-            policy_accept: 0,
-            banned_until: 0
-        };
+        // run
+        try { await interactions.command[d.data.name](d); }
+        catch (err) { console.error(`\x1b[90mInteraction /\x1b[0m Error while handling interaction:`, err); }
+    } else if (d.type === 3) { // message component
+        if (!d.data.custom_id.startsWith('d2:')) return;
 
-        await userDB.appendLine(user);
+        // parse custom id
+        let url;
+        try { url = new URL(d.data.custom_id) } catch { return; } // ignore wrong format button id
+
+        // check user
+        if (author.id !== url.hash.slice(1)) {
+            try {
+                await client.request('POST', `/interactions/${d.id}/${d.token}/callback`, {
+                    type: 4, data: ui.notYourInteraction(d)
+                });
+            } catch {
+                console.warn(`\x1b[90mInteraction /\x1b[0m Failed to send "not your interaction" message of \x1b[34m${url.pathname}\x1b[0m.`);
+            }
+            return;
+        }
+
+        // check if interaction exists
+        if (!interactions.message[url.pathname]) {
+            console.warn(`\x1b[90mInteraction /\x1b[0m Unknown 'd2:' interaction: \x1b[34m${url.pathname}\x1b[0m.`);
+            return;
+        }
+
+        // run
+        try {
+            await interactions.message[url.pathname](d, url.searchParams);
+        } catch (err) {
+            console.error(`\x1b[90mInteraction /\x1b[0m Error while handling interaction: \x1b[34m${url.pathname}\x1b[0m.\n`, err);
+            try {
+                await client.request('POST', `/interactions/${d.id}/${d.token}/callback`, {
+                    type: 4, data: ui.interactionError(d, url, err)
+                });
+            } catch {
+                console.warn(`\x1b[90mInteraction /\x1b[0m Failed to send "interaction error" message of \x1b[34m${url.pathname}\x1b[0m.`,);
+            }
+        }
     }
-
-    // update credits
-    if (
-        (user.banned_until < now) &&              // skip banned users
-        (nowHour - user.free_update) &&           // check time
-        (user.free_credits < config.credit.daily) // check if user's credit is full or not
-    ) {
-        // calculate free credits
-        user.free_credits += BigInt(nowHour - user.free_update) * (config.credit.hourly);
-        if (user.free_credits > config.credit.daily) user.free_credits = config.credit.daily;
-
-        user.free_update = nowHour;
-        await userDB.setLineByField('id', id, { free_credits: user.free_credits, free_update: user.free_update });
-    }
-
-    // return
-    return user;
-}
+});
 
 // generate response
 async function generate(message, author = message.author) {
     // load user from database
     let user = await getUser(author.id);
 
+    // time and check banned
+    const now = Date.now();
+    if (user.banned_until > now) {
+        client.request('POST', `/channels/${message.channel_id}/messages`, ui.bannedMessage(message, author, user));
+        return;
+    }
+
     // check policy accept status
     if (user.policy_accept < config.policy.update) {
-        client.request('POST', `/channels/${message.channel_id}/messages`, ui.policyMessage)
+        client.request('POST', `/channels/${message.channel_id}/messages`, ui.policyMessage(message, author));
+        return;
     }
 }
 
@@ -110,3 +132,8 @@ async function generate(message, author = message.author) {
 async function buildConversation(message) {
 
 }
+
+// error catcher
+process.on('uncaughtException', (e) => {
+    console.error(e);
+});

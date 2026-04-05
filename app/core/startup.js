@@ -2,7 +2,7 @@
 DiscordAI v2
 The best AI bot framework on Discord.
 
-core/startup-logger.js
+core/startup.js
 
 by JustApple
 */
@@ -96,6 +96,8 @@ try {
     // policy config
     loadingConfig = 'policy config';
     config.policy = config.policy ?? {};
+    config.policy.tos = config.policy.tos ?? 'https://github.com/ProjectDiscordAI/DiscordAI/tree/v2/tos.md';
+    config.policy.pp = config.policy.pp ?? 'https://github.com/ProjectDiscordAI/DiscordAI/tree/v2/pp.md';
     config.policy.update = config.policy.update ?? 10;
     console.log(`\x1b[90m  - \x1b[0mPolicy config loaded.\x1b[0m`);
 
@@ -117,7 +119,6 @@ try {
     // ui config
     loadingConfig = 'UI config';
     config.ui = config.ui ?? {};
-    config.ui.tos = config.ui.tos ?? 'https://github.com/ProjectDiscordAI/DiscordAI/tree/v2/tos.md';
     console.log(`\x1b[90m  - \x1b[0mUI config loaded.\x1b[0m`);
 
     // discord bot configs
@@ -202,7 +203,7 @@ try {
                     new DBLEDoubleField('policy_accept'),  // last policy accept time in ms (unix epoch)
                     new DBLEDoubleField('banned_until'),   // banned time in ms (unix epoch)
                     new DBLEAnyField(8, 'flags'),          // account flags
-                    new DBLEUInt32Field('RSV')           // reserved
+                    new DBLEUInt32Field('RSV')             // reserved
                 ]
             });
             console.log(`\x1b[90m  - \x1b[0mUser database created.\x1b[0m`);
@@ -216,6 +217,47 @@ try {
     }
 }
 console.log(`\x1b[90m  - \x1b[32mComplete.\x1b[0m`);
+
+// get user data
+export async function getUser(id) {
+    // load user from database
+    let user = (await userDB.readLineByField('id', id))?.fields;
+
+    // current time
+    const now = Date.now();
+    const nowHour = Math.floor(now / 3600000);
+
+    // new user
+    if (!user) {
+        user = {
+            id: id,
+            free_credits: config.credit.daily,
+            paid_credits: config.credit.regist_paid,
+            free_update: nowHour,
+            policy_accept: 0,
+            banned_until: 0
+        };
+
+        await userDB.appendLine(user);
+    }
+
+    // update credits
+    if (
+        (user.banned_until < now) &&              // skip banned users
+        (nowHour - user.free_update) &&           // check time
+        (user.free_credits < config.credit.daily) // check if user's credit is full or not
+    ) {
+        // calculate free credits
+        user.free_credits += BigInt(nowHour - user.free_update) * (config.credit.hourly);
+        if (user.free_credits > config.credit.daily) user.free_credits = config.credit.daily;
+
+        user.free_update = nowHour;
+        await userDB.setLineByField('id', id, { free_credits: user.free_credits, free_update: user.free_update });
+    }
+
+    // return
+    return user;
+}
 
 // read or create file
 async function readOrCreateFile(path, create = '') {
