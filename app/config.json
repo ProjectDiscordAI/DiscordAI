@@ -4,5 +4,9 @@
     "bot": {
         "token": "env:discord_token"
     },
-    "users": {}
+    "users": {
+        "admin": [
+            "1023207867483947038"
+        ]
+    }
 }

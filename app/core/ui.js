@@ -11,7 +11,7 @@ by JustApple
 import { config, user } from './startup.js';
 
 // discord ai v2 button custom id format
-// 'd2:<name>?<key>=<value>&<key>=<value>...#<target_user>'
+// 'd2:<name>?<key>=<value>&<key>=<value>...#<target_user>' (uri format)
 
 // welcome ui
 export const welcomeMessage = {
@@ -28,7 +28,7 @@ export const welcomeMessage = {
                 type: 10,
                 content: `
 # Hello!
-This is the first time you're here, 
+Welcome to DiscordAI, we'll help you setting up your personal experience!
 `
             }
         ]
@@ -38,6 +38,7 @@ This is the first time you're here,
 // policy accepting ui
 export function policyMessage(message, author) {
     const msg = {
+        allowed_mentions: { parse: [] },
         flags: 1 << 15 | 1 << 6,
         components: [{
             type: 17, // container
@@ -80,7 +81,7 @@ Hey, <@${author.id}>! We've updated our [Terms of Service (ToS)](${config.policy
     };
 
     // add reply if same user
-    if (message.author.id === author.id) msg.message_reference = { message_id: message.id };
+    if (message?.author?.id === author.id) msg.message_reference = { message_id: message?.id };
 
     // return
     return msg;
@@ -90,7 +91,7 @@ Hey, <@${author.id}>! We've updated our [Terms of Service (ToS)](${config.policy
 // banned ui
 export function bannedMessage(message, author, user) {
     return {
-        message_reference: (message.author.id === author.id) ? { message_id: message.id } : undefined,
+        message_reference: (message?.author?.id === author.id) ? { message_id: message?.id } : undefined,
         flags: 1 << 15,
         components: [{
             type: 17,
@@ -151,6 +152,7 @@ export function interactionError(d, url, err) {
 export function policyAccepted(d) {
     const author = d.user || d.member.user;
     return {
+        allowed_mentions: { parse: [] },
         flags: 1 << 15 | 1 << 6,
         components: [{
             type: 17,
@@ -159,7 +161,6 @@ export function policyAccepted(d) {
             components: [{
                 type: 10, // text
                 content: `
-# Terms of Service and Privacy Policy Update
 <@${author.id}> You have accepted our latest [Terms of Service (ToS)](${config.policy.tos}) and [Privacy Policy (PP)](${config.policy.pp}), please continue enjoying our service!
 `
             }]
@@ -171,6 +172,7 @@ export function policyAccepted(d) {
 export function policyRejected(d) {
     const author = d.user || d.member.user;
     return {
+        allowed_mentions: { parse: [] },
         flags: 1 << 15 | 1 << 6,
         components: [{
             type: 17,
@@ -179,10 +181,52 @@ export function policyRejected(d) {
             components: [{
                 type: 10, // text
                 content: `
-# Terms of Service and Privacy Policy Update
 <@${author.id}> You rejected our [Terms of Service (ToS)](${config.policy.tos}) and [Privacy Policy (PP)](${config.policy.pp}), feel free to accept them again any time by mention me!
 `
             }]
+        }]
+    };
+}
+
+// dashboard
+export function dashboard(d, user) {
+
+    return {
+        flags: 1 << 15 | 1 << 6,
+        components: [{
+            type: 17,
+            id: 1_006, // ids over 1000 is discordai's special message flag
+            components: [{
+                type: 10, // text
+                content: `# Dashboard`
+            }]
+        }]
+    };
+}
+
+// admin dashboard
+export function adminDashboard(d, user) {
+    return {
+        flags: 1 << 15 | 1 << 6,
+        components: [{
+            type: 17,
+            id: 1_006, // ids over 1000 is discordai's special message flag
+            components: [
+                {
+                    type: 10, // text
+                    content: `# Dashboard (Admin)`
+                },
+                { type: 14 }, // divider
+                {
+                    type: 1, // action row
+                    components: [
+                        {
+                            type: 2, style: 2, // secondary button
+                            label: 'Delete account', custom_id: `d2:admDelAcc#${user.id}`
+                        }
+                    ]
+                },
+            ]
         }]
     };
 }

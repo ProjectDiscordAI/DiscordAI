@@ -114,6 +114,7 @@ try {
     config.users = config.users ?? {};
     config.users.allowedBots = new Set(config.users.allowedBots);
     config.users.banned = new Set(config.users.banned);
+    config.users.admin = new Set(config.users.admin);
     console.log(`\x1b[90m  - \x1b[0mUsers config loaded.\x1b[0m`);
 
     // ui config
@@ -127,6 +128,9 @@ try {
     if (!config.bot.token) throw new Error('Bot token (.bot.token) is required.');
     config.bot.clientOptions = config.bot.clientOptions ?? {};
     config.bot.gatewayOptions = config.bot.gatewayOptions ?? {};
+    config.bot.commands = config.bot.commands ?? {}; // command binding
+    config.bot.commands.dashboard = config.bot.commands.dashboard ?? 'dashboard';
+    config.bot.commands.generate = config.bot.commands.generate ?? 'Generate';
     console.log(`\x1b[90m  - \x1b[0mBot config loaded.\x1b[0m`);
 } catch (err) {
     console.error(`\x1b[90m  - \x1b[31mError while loading ${loadingConfig}: ${err.message}\x1b[0m`);
@@ -278,6 +282,7 @@ console.log(`\x1b[90m> \x1b[0mLoading instructions...`);
 export const instructions = {};
 let loadingInstruction = 'instruction';
 try {
+    // core instruction
     loadingInstruction = 'core instruction (instructions/core.md)';
     instructions.core = await readOrCreateFile(config.instructions.core, 'You are a helpful assistant.');
     console.log(`\x1b[90m  - \x1b[0mCore instruction loaded.\x1b[0m`);
@@ -298,18 +303,54 @@ export let user;
 try {
     gateway = client.gateway({ intents: 0b1001001000010000, ...config.bot.gatewayOptions });
 
+    // get user
     user = (await new Promise((resolve, reject) => {
         gateway.once('READY', resolve);
         gateway.once('error', reject);
     })).user;
+    console.log(`\x1b[90m  - \x1b[0mConnected user: \x1b[34m${user.username}#${user.discriminator}\x1b[90m (${user.id})\x1b[0m`);
 
     // set status
-    if (config.bot.status) gateway.sendMessage(3, config.bot.status);
+    if (config.bot.status) {
+        gateway.sendMessage(3, config.bot.status);
+        console.log(`\x1b[90m  - \x1b[0mStatus updated.`);
+    }
+
+    // get bot commands
+    const commands = await client.request('GET', `/applications/${user.id}/commands`);
+
+    // check dashboard command
+    if (!commands.find(c => c.name === config.bot.commands.dashboard)) {
+        // regist one
+        try {
+            await client.request('POST', `/applications/${user.id}/commands`, {
+                name: config.bot.commands.dashboard,
+                type: 1,
+                description: 'Show dashboard.'
+            });
+            console.log(`\x1b[90m  - \x1b[0mCreated command: \x1b[34m${config.bot.commands.dashboard}\x1b[0m.`);
+        } catch (err) {
+            console.error(`\x1b[90m  - \x1b[31mFailed to generate command "${config.bot.commands.dashboard}": ${err.message}`);
+        }
+    }
+
+    // check generate command
+    if (!commands.find(c => c.name === config.bot.commands.generate)) {
+        // regist one
+        try {
+            await client.request('POST', `/applications/${user.id}/commands`, {
+                name: config.bot.commands.generate,
+                type: 3
+            });
+            console.log(`\x1b[90m  - \x1b[0mCreated command: \x1b[34m${config.bot.commands.generate}\x1b[0m.`);
+        } catch (err) {
+            console.error(`\x1b[90m  - \x1b[31mFailed to generate command "${config.bot.commands.generate}": ${err.message}`);
+        }
+    }
 } catch (err) {
     console.error(`\x1b[90m  - \x1b[31mFailed to connect to Discord: ${err.message}\x1b[0m`);
     process.exit(1);
 }
-console.log(`\x1b[90m  - \x1b[0mConnected user: \x1b[34m${user.username}#${user.discriminator}\x1b[90m (${user.id})\x1b[0m`);
 console.log(`\x1b[90m  - \x1b[32mConnected to Discord.\x1b[0m`);
 
 // launched

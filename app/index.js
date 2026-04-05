@@ -62,8 +62,14 @@ gateway.on('INTERACTION_CREATE', async (d) => {
     if (config.users.banned.has(author.id)) return; // hardcoded banned
 
     if (d.type === 2) { // application command
+        let command = d.data.name;
+
+        // bind command
+        if (command === config.bot.commands.dashboard) command = 'dashboard';
+        if (command === config.bot.commands.generate) command = 'generate';
+
         // check if command exists
-        if (!interactions.command[d.data.name]) return;
+        if (!interactions.command[command]) return;
 
         // run
         try { await interactions.command[d.data.name](d); }

@@ -8,4 +8,4 @@ by JustApple
 */
 
 export * as message from './message.js';
-export * as command from './message.js';
+export * as command from './command.js';
