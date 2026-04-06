@@ -34,7 +34,7 @@
   },
   "dependencies": {
     "@jnode/request": "^2.1.4",
-    "@jnode/ai": "^1.0.0",
+    "@jnode/ai": "^1.0.1",
     "@jnode/discord": "^2.0.1",
     "@jnode/db": "^1.1.0"
   }

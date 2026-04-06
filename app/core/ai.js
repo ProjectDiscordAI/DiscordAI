@@ -57,10 +57,11 @@ export async function generate(message, author = message.author) {
         const conversation = await buildConversation(message, author);
 
         // generate
-        const stream = messageStreamInteract(await conversation.streamInteract([], {}, {}), message, author);
+        await messageStreamInteract(await conversation.streamInteract([], {}, {}), message, author);
 
     } catch (err) {
         console.error(err)
+        console.error(await err.res.json())
     } finally {
         // task finished
         tasks.delete(task);

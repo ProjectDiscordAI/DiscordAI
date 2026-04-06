@@ -64,6 +64,8 @@ export async function messageStreamInteract(interactStream, message, author, con
     let inQuote = false;
     let nextDelb = '';
 
+    let c = 1;
+
     // split flags
     let h1 = { at: 0 };
     let h2 = { at: 0 };
@@ -164,15 +166,15 @@ export async function messageStreamInteract(interactStream, message, author, con
                 } else if (emptyLine.at > 0 && text.length - emptyLine.at < 1900) {
                     cut = text.slice(0, emptyLine.at);
                     text = text.slice(emptyLine.at + 1);
-                    if (emptyLine.code) { dele = '```'; nextDelb = '```\n'; } // <-- changed
+                    if (emptyLine.code) { dele = '\n```'; nextDelb = '```\n'; } // <-- changed
                 } else if (nextline.at > 0 && text.length - nextline.at < 1900) {
                     cut = text.slice(0, nextline.at);
                     text = text.slice(nextline.at + 1);
-                    if (nextline.code) { dele = '```'; nextDelb = '```\n'; } // <-- changed
+                    if (nextline.code) { dele = '\n```'; nextDelb = '```\n'; } // <-- changed
                 } else {
                     cut = text.slice(0, 1900);
                     text = text.slice(1900);
-                    if (codeblock) { dele = '```'; nextDelb = '```\n'; } // <-- changed
+                    if (codeblock) { dele = '\n```'; nextDelb = '```\n'; } // <-- changed
                 }
 
                 // trim
@@ -181,7 +183,6 @@ export async function messageStreamInteract(interactStream, message, author, con
                 const trimEnd = trimStart.trimEnd();
                 aft = trimStart.slice(trimEnd.length);
 
-                // FIX: If we cut inside a codeblock, ensure the next message correctly starts the markdown block again.
                 if (dele === '```') {
                     text = '```\n' + text;
                 }
@@ -191,7 +192,7 @@ export async function messageStreamInteract(interactStream, message, author, con
                     content: delb + trimEnd + dele,
                     components: [{
                         type: 1, components: [{
-                            type: 2, style: 5,
+                            type: 2, style: 5, label: `${c++} / ~`,
                             url: `https://discord.com/channels/${lastMsg.guild_id ?? '@me'}/${lastMsg.channel_id}/${lastMsg.id}?bef=${encodeURIComponent(bef)}&aft=${encodeURIComponent(aft)}&delb=${delb.length}&dele=${dele.length}`
                         }]
                     }]
@@ -202,11 +203,26 @@ export async function messageStreamInteract(interactStream, message, author, con
         }
     }
 
-    // flush for the remaining text under 1900 chars
+    // final flush for the remaining text under 1900 chars
     if (text.trim().length > 0) {
+        const delb = nextDelb;
+        const dele = codeblock ? '\n```' : '';
+
+        // trim
+        const trimStart = text.trimStart();
+        const bef = text.slice(0, text.length - trimStart.length);
+        const trimEnd = trimStart.trimEnd();
+        const aft = trimStart.slice(trimEnd.length);
+
         await sendMessage(lastMsg.channel_id, {
             message_reference: (lastMsg === message) ? { message_id: message.id } : undefined,
-            content: nextDelb + text.trimEnd() + (codeblock ? '\n```' : '') // <-- Added nextDelb here
+            content: delb + trimEnd + dele,
+            components: [{
+                type: 1, components: [{
+                    type: 2, style: 5, label: `${c} / ${c}`,
+                    url: `https://discord.com/channels/${lastMsg.guild_id ?? '@me'}/${lastMsg.channel_id}/${lastMsg.id}?bef=${encodeURIComponent(bef)}&aft=${encodeURIComponent(aft)}&delb=${delb.length}&dele=${dele.length}`
+                }]
+            }]
         });
     }
 }
