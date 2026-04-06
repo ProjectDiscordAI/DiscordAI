@@ -24,7 +24,7 @@ export class DAIFallbackModel {
         });
     }
 
-    async interact(agent, conversation, context, options = {}) {
+    async interact(agent, conversation, context = {}, options = {}) {
         let e;
         for (let i of this.models) {
             try { return await i.interact(agent, conversation, context, options); }
@@ -33,7 +33,7 @@ export class DAIFallbackModel {
         throw e;
     }
 
-    async streamInteract(agent, conversation, context, options = {}) {
+    async streamInteract(agent, conversation, context = {}, options = {}) {
         let e;
         for (let i of this.models) {
             try { return await i.streamInteract(agent, conversation, context, options); }
@@ -60,7 +60,7 @@ export class DAIProxyModel {
         return this.model.interact(agent, conversation, context._context, options);
     }
 
-    streamInteract(agent, conversation, context, options = {}) {
+    streamInteract(agent, conversation, context = {}, options = {}) {
         return this.model.streamInteract(agent, conversation, context._context, options);
     }
 }
@@ -84,7 +84,7 @@ export class DAIUserCustomModel {
             .interact(agent, conversation, context._context, options);
     }
 
-    streamInteract(agent, conversation, context, options = {}) {
+    streamInteract(agent, conversation, context = {}, options = {}) {
         return this.serviceRegistery[context._service].model(context._model, { auth: context._auth })
             .streamInteract(agent, conversation, context._context, options);
     }

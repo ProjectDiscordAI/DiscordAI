@@ -10,9 +10,24 @@ by JustApple
 // dependencies
 import ai from '@jnode/ai';
 import { request } from '@jnode/request';
-import { config, client, daiv2Tool, user, userDB, daiv2Cacher, instructions, getUser, tasks, getMessage } from './startup.js';
-import { extname } from 'path';
+import { config, client, daiv2Tool, user, daiv2Cacher, instructions, getUser, tasks, getMessage, model, getUserMemory, getTime } from './startup.js';
+import live from './../ai/live.js';
+import path from 'path';
+import fs from 'fs/promises';
 import * as ui from './ui.js';
+
+// load toolkits
+const toolkits = {};
+const dir = await fs.readdir('./toolkits/', { withFileTypes: true });
+for (let i of dir) {
+    if (!i.isFile()) continue;
+    if (i.name.startsWith('.')) continue;
+
+    const ext = path.extname(i.name);
+    if (!(ext === '.js' || ext === '.mjs' || ext === '.cjs')) continue;
+
+    toolkits[path.basename(i.name, ext)] = (await import(path.resolve(i.parentPath, i.name))).default;
+}
 
 // generate response
 export async function generate(message, author = message.author) {
@@ -32,17 +47,85 @@ export async function generate(message, author = message.author) {
         return;
     }
 
-    // build conversation
-    const conversation = await buildConversation(message);
+    const task = Symbol('generateResponseTask');
+    try {
+        // task monitor
+        tasks.add(task);
+
+        // build conversation
+        const conversation = await buildConversation(message, author);
+
+        try {
+            const COLOR_RESET = '\x1b[0m';
+            const WHITE = '\x1b[37m';
+            const LIGHT_GRAY = '\x1b[90m';
+            const DEEP_BLUE = '\x1b[34m';
+            const LIGHT_BLUE = '\x1b[94m';
+
+            const stream = await conversation.streamInteract();
+
+            let id = 0;
+            for await (const i of stream) {
+                if (i.type === 'component') {
+                    if (i.component.type === 'text') {
+                        if (id % 2 === 0) process.stdout.write(WHITE + i.component.content + COLOR_RESET);
+                        else process.stdout.write(LIGHT_GRAY + i.component.content + COLOR_RESET);
+                    } else if (i.component.type === 'thought') {
+                        if (id % 2 === 0) process.stdout.write(DEEP_BLUE + i.component.content + COLOR_RESET);
+                        else process.stdout.write(LIGHT_BLUE + i.component.content + COLOR_RESET);
+                    } else if (i.component.type === 'action') {
+                        console.log(`\n--- Action (${i.component.name}) Request ---`);
+                        console.log(JSON.stringify(i.component.action, null, 3).split('\n').map(t => '| ' + t).join('\n'));
+                        if (i.component.reaction) {
+                            console.log(`\n--- Action (${i.component.name}) Result ---`);
+                            console.log(JSON.stringify(i.component.reaction, null, 3).split('\n').map(t => '| ' + t).join('\n'));
+                            console.log('');
+                        }
+                    } else if (i.component.type === 'file') {
+                        console.log('\n--- File Received ---');
+                        console.log(`MIME Type: ${i.component.mimeType}`);
+                    } else if (i.component.type === 'function_call') {
+                        console.log(`\n--- Function (${i.component.name}) Call ---`);
+                        console.log(JSON.stringify(i.component.arguments, null, 3).split('\n').map(t => '| ' + t).join('\n'));
+                    }
+                } else if (i.type === 'continue') {
+                    if (i.component.type === 'text') {
+                        if (id % 2 === 0) process.stdout.write(WHITE + i.content + COLOR_RESET);
+                        else process.stdout.write(LIGHT_GRAY + i.content + COLOR_RESET);
+                    } else if (i.component.type === 'action') {
+                        console.log(`\n--- Action (${i.component.name}) Result ---`);
+                        console.log(JSON.stringify(i.component.reaction, null, 3).split('\n').map(t => '| ' + t).join('\n'));
+                        console.log('');
+                    } else if (i.component.type === 'thought') {
+                        if (id % 2 === 0) process.stdout.write(DEEP_BLUE + i.component.content + COLOR_RESET);
+                        else process.stdout.write(LIGHT_BLUE + i.component.content + COLOR_RESET);
+                    }
+                } else if (i.type === 'end') {
+                    console.log('\n\n--- Conversation Ended ---');
+                    console.log(JSON.stringify(i.conversation.last, null, 3));
+                }
+                id++;
+            }
+        } catch (err) {
+            console.error(err);
+            console.error(await err.res.json());
+            return;
+        }
+    } catch (err) {
+        console.error(err)
+    } finally {
+        // task finished
+        tasks.delete(task);
+    }
 }
 
 // build conversation
-export async function buildConversation(message) {
+export async function buildConversation(message, author) {
     let conversation = [];
     let ref = message;
 
     // loop for collecting messages
-    let instruction = instructions.core + '\n\n';
+    let instruction = '';
     while (ref) {
         let msg = ref;
         ref = null;
@@ -85,7 +168,7 @@ export async function buildConversation(message) {
             if (msg.embeds?.[0]?.image?.url) {
                 const url = new URL(msg.embeds[0].image.url);
 
-                if (extname(url.pathname) === '.daiv2') {
+                if (path.extname(url.pathname) === '.daiv2') {
                     const data = await daiv2Cacher.get(`${msg.channel_id}/${msg.id}`, async () => {
                         return daiv2Tool.decrypt(await (await request('GET', url)).body())?.data;
                     });
@@ -106,7 +189,7 @@ export async function buildConversation(message) {
             // system message
             let systemMessage = '';
             systemMessage += `>>> [${msg.author.id}] ${msg.author.global_name ?? msg.author.username}\n`
-            systemMessage += `    (${msg.id}|${(new Date(msg.timestamp)).toLocaleString(config.core.lang, config.core.localeStringOptions)})\n`;
+            systemMessage += `    (${msg.id}|${getTime(msg.timestamp)})\n`;
 
             // attachments
             for (let i of (msg.attachments ?? [])) {
@@ -142,8 +225,56 @@ export async function buildConversation(message) {
         conversation.push(aiMsg);
     }
 
-    console.log(JSON.stringify(conversation, null, 3));
+    // build instruction
+    instruction = instructions.core + (instruction ? '\n\n' + instruction : '');
+
+    // get live infomation
+    const liveInfo = await live(message, author);
+    instruction += '\n\n' + liveInfo;
+
+    // get user memory
+    const memories = (await getUserMemory(author.id)).lines;
+    const categories = {};
+    for (let i = 0; i < memories.length; i++) {
+        const memory = memories[i];
+        const category = memory.category ?? 'Main*';
+        categories[category] = categories[category] ?? {};
+
+        // addition to
+        if (categories[category][memory.addition_to]) {
+            categories[category][memory.addition_to].additions = categories[category][memory.addition_to].additions ?? {};
+            categories[category][memory.addition_to].additions[i] = memory;
+        } else {
+            categories[category][i] = memory;
+        }
+    }
+    instruction += '\n\n' + config.ai.memoryTitle + '\n';
+    for (let i in categories) {
+        instruction += `\n## ${i} (${Object.keys(categories[i]).length})`;
+
+        if (i.endsWith('*')) { // expand
+            for (let j in categories[i]) {
+                const m = categories[i][j];
+                instruction += `\n${j}. ${m.description} [${m.note ? config.ai.hasNote : ''}${m.conversation ? config.ai.hasConversation : ''}${getTime(m.time)}]`;
+                if (m.additions) {
+                    for (let k in m.additions) {
+                        const am = m.additions[k];
+                        instruction += `\n  ${k}. ${am.description} [${am.note ? config.ai.hasNote : ''}${am.conversation ? config.ai.hasConversation : ''}${getTime(am.time)}]`;
+                    }
+                }
+            }
+        }
+    }
+
+    // build functions
+    const functions = [toolkits.default];
+
+    // build agent
+    const agent = new ai.AIAgent(model, {
+        instructions: instruction,
+        functions: functions
+    });
 
     // return
-    return conversation;
+    return new ai.AIConversation(agent, conversation);
 }

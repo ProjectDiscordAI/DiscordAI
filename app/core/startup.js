@@ -15,6 +15,7 @@ const require = createRequire(import.meta.url);
 import path from 'path';
 import fs from 'fs/promises';
 import crypto from 'crypto';
+import { fileURLToPath } from 'url';
 import { Daiv2Tool } from './utils/daiv2.js';
 import { DBLESnowflakeField } from './utils/dble-snowflake.js';
 import { CacheManager } from './utils/cache.js';
@@ -23,9 +24,11 @@ import * as services from './../ai/services.js';
 import jn_request from '@jnode/request';
 import jn_discord from '@jnode/discord';
 import jn_dble from '@jnode/db/dble';
+import jn_ljson from '@jnode/db/ljson';
 const { request } = jn_request;
 const { Client } = jn_discord;
-const { DBLEFile, DBLEDoubleField, DBLEBigInt64Field, DBLEAnyField, DBLEUInt32Field, DBLEUInt8Field } = jn_dble;
+const { DBLEFile, DBLEDoubleField, DBLEBigInt64Field, DBLEAnyField, DBLEUInt32Field } = jn_dble;
+const { LJSONFile } = jn_ljson;
 
 // constants
 let { version } = require('./../../package.json');
@@ -76,6 +79,7 @@ try {
     config.instructions = config.instructions ?? {};
     config.instructions.core = config.instructions.core ?? './instructions/core.md';
     config.instructions.setup = config.instructions.setup ?? './instructions/setup.md';
+    config.instructions.chat = config.instructions.chat ?? './instructions/chat.md';
     console.log(`\x1b[90m  - \x1b[0mLog config loaded.\x1b[0m`);
 
     // core configs
@@ -128,6 +132,7 @@ try {
     config.cache.messageCacherOptions = config.cache.messageCacherOptions;
     config.cache.daiv2CacherOptions = config.cache.daiv2CacherOptions;
     config.cache.memoryCacherOptions = config.cache.memoryCacherOptions;
+    config.cache.configCacherOptions = config.cache.configCacherOptions;
     console.log(`\x1b[90m  - \x1b[0mPolicy config loaded.\x1b[0m`);
 
     // users config
@@ -149,6 +154,9 @@ try {
     config.ai.models = config.ai.models ?? [];
     config.ai.customModel = config.ai.customModel ?? true;
     config.ai.customModelOptions = config.ai.customModelOptions ?? true;
+    config.ai.memoryTitle = config.ai.memoryTitle ?? '# Memories';
+    config.ai.hasNote = config.ai.hasNote ?? 'with note, ';
+    config.ai.hasConversation = config.ai.hasConversation ?? 'with conversation, ';
     console.log(`\x1b[90m  - \x1b[0mAI config loaded.\x1b[0m`);
 
     // discord bot configs
@@ -214,6 +222,11 @@ try {
     }
 }
 console.log(`\x1b[90m  - \x1b[32mComplete.\x1b[0m`);
+
+// get time
+export function getTime(time) {
+    return (new Date(time)).toLocaleString(config.core.lang, config.core.localeStringOptions);
+}
 
 // initialize database
 console.log(`\x1b[90m> \x1b[0mInitializing database...`);
@@ -323,6 +336,11 @@ try {
     loadingInstruction = 'setup instruction';
     instructions.setup = await readOrCreateFile(config.instructions.setup, 'You\'ll help user setup their personal experience.');
     console.log(`\x1b[90m  - \x1b[0mSetup instruction loaded.\x1b[0m`);
+
+    // chat instruction
+    loadingInstruction = 'chat instruction';
+    instructions.chat = await readOrCreateFile(config.instructions.chat, 'You\'ll chat to user on Discord and provide help.');
+    console.log(`\x1b[90m  - \x1b[0mChat instruction loaded.\x1b[0m`);
 } catch (err) {
     console.error(`\x1b[90m  - \x1b[31mError while loading ${loadingInstruction}: ${err.message}\x1b[0m`);
     process.exit(1);
@@ -363,6 +381,7 @@ console.log(`\x1b[90m  - \x1b[32mLoaded ${models.length} models.\x1b[0m`);
 console.log(`\x1b[90m> \x1b[0mCreating cache managers...`);
 export const messageCacher = new CacheManager(null, config.cache.messageCacherOptions);
 export const daiv2Cacher = new CacheManager(null, config.cache.daiv2CacherOptions);
+export const configCacher = new CacheManager(null, config.cache.configCacherOptions);
 export const memoryCacher = new CacheManager(null, config.cache.memoryCacherOptions);
 console.log(`\x1b[90m  - \x1b[32mComplete.\x1b[0m`);
 
@@ -371,6 +390,27 @@ export function getMessage(channel, message) {
     return messageCacher.get(`${channel}/${message}`, async () => {
         try { return await client.request('GET', `/channels/${channel}/messages/${message}`); }
         catch { return null; }
+    });
+}
+
+// get user config
+export function getUserConfig(id) {
+    return configCacher.get(id, async () => {
+        try {
+            return JSON.parse(await readOrCreateFile(path.join(config.db.folder, `users/${id}-config.js`), JSON.stringify({
+                toolkit: [],
+                model: {}
+            })));
+        } catch { return null; }
+    });
+}
+
+// get user memory
+export function getUserMemory(id) {
+    return memoryCacher.get(id, async () => {
+        try {
+            return await LJSONFile.load(path.join(config.db.folder, `users/${id}-memory.jld`));
+        } catch { return null; }
     });
 }
 
