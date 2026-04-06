@@ -24,7 +24,7 @@ export class CacheManager {
 
     // get the value of the key
     async get(key, loader = () => { }) {
-        const value = this.map.get(key) ?? await loader();
+        const value = this.map.get(key) ?? await loader(key);
 
         // refresh and return
         this.map.delete(key);

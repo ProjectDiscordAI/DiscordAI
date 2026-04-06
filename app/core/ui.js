@@ -204,8 +204,8 @@ export function dashboard(d, user) {
     };
 }
 
-// admin dashboard
-export function adminDashboard(d, user) {
+// dev dashboard
+export function devDashboard(d, user) {
     return {
         flags: 1 << 15 | 1 << 6,
         components: [{
@@ -214,7 +214,7 @@ export function adminDashboard(d, user) {
             components: [
                 {
                     type: 10, // text
-                    content: `# Dashboard (Admin)`
+                    content: `# Dashboard (Dev)`
                 },
                 { type: 14 }, // divider
                 {
@@ -226,6 +226,23 @@ export function adminDashboard(d, user) {
                         }
                     ]
                 },
+            ]
+        }]
+    };
+}
+
+// generating content message
+export function generatingCommand() {
+    return {
+        flags: 1 << 15 | 1 << 6,
+        components: [{
+            type: 17,
+            id: 1_006, // ids over 1000 is discordai's special message flag
+            components: [
+                {
+                    type: 10, // text
+                    content: `Responding to the message...`
+                }
             ]
         }]
     };

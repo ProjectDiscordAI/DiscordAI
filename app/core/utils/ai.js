@@ -43,6 +43,28 @@ export class DAIFallbackModel {
     }
 }
 
+// discord ai proxy model
+export class DAIProxyModel {
+    constructor(model, options = {}) {
+        this.model = model;
+        this._info = options.info;
+    }
+
+    info() {
+        return this._info ?? (this._info = {
+
+        });
+    }
+
+    interact(agent, conversation, context = {}, options = {}) {
+        return this.model.interact(agent, conversation, context._context, options);
+    }
+
+    streamInteract(agent, conversation, context, options = {}) {
+        return this.model.streamInteract(agent, conversation, context._context, options);
+    }
+}
+
 // discord ai user custom model
 export class DAIUserCustomModel {
     constructor(serviceRegistery = {}, options = {}) {
@@ -57,6 +79,7 @@ export class DAIUserCustomModel {
     }
 
     interact(agent, conversation, context = {}, options = {}) {
+        if (!(context._service && context._model)) throw new Error('Not working.')
         return this.serviceRegistery[context._service].model(context._model, { auth: context._auth })
             .interact(agent, conversation, context._context, options);
     }

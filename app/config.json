@@ -5,8 +5,17 @@
         "token": "env:discord_token"
     },
     "users": {
-        "admin": [
+        "dev": [
             "1023207867483947038"
+        ]
+    },
+    "ai": {
+        "models": [
+            {
+                "service": "gemini",
+                "auth": "env:gemini_key",
+                "name": "gemma-4-31b-it"
+            }
         ]
     }
 }

@@ -49,8 +49,8 @@ export async function tosppRjct(d) {
     });
 }
 
-// admin delete account
-export async function admDelAcc(d) {
+// dev delete account
+export async function devDelAcc(d) {
     const author = d.user || d.member.user;
 
     // delete account

@@ -15,21 +15,16 @@ import qs from 'querystring';
 process.chdir(dirname(fileURLToPath(import.meta.url)));
 
 // startup and load discord ai tools
-import { config, client, gateway, user, userDB, encryptionKey, instructions, getUser } from './core/startup.js';
-import { CacheManager } from './core/utils/cache.js';
+import { config, client, gateway, user, messageCacher } from './core/startup.js';
 import * as ui from './core/ui.js';
 import * as interactions from './core/interactions/index.js';
+import { generate } from './core/ai.js';
 
 // logger
 await import('./core/logger.js');
 
 // log start message
 console.log(`Connected to Discord as \x1b[34m${user.username}#${user.discriminator}\x1b[90m (${user.id})\x1b[0m.`);
-
-// create cache managers
-const messageCacher = new CacheManager(null, config.cache.messageCacherOptions);
-const daiv2Cacher = new CacheManager(null, config.cache.daiv2CacherOptions);
-const memoryCacher = new CacheManager(null, config.cache.memoryCacherOptions);
 
 // gateway logs
 if (config.log.gatewayLog) {
@@ -50,9 +45,8 @@ gateway.on('MESSAGE_CREATE', async (d) => {
     if (d.author.bot && !config.users.allowedBots.has(d.author.id)) return; // ignore bot messages
     if (config.users.banned.has(d.author.id)) return; // hardcoded banned
 
-    if (!d.mentions.find(u => (u.id === user.id))) return; // check mention
+    if (d.guild_id && !d.mentions.find(u => (u.id === user.id))) return; // check mention
 
-    console.log(`Received message from \x1b[34m${d.author.username} \x1b[90m(${d.author.id})\x1b[0m.`);
     await generate(d, d.author);
 });
 
@@ -72,7 +66,7 @@ gateway.on('INTERACTION_CREATE', async (d) => {
         if (!interactions.command[command]) return;
 
         // run
-        try { await interactions.command[d.data.name](d); }
+        try { await interactions.command[command](d); }
         catch (err) { console.error(`\x1b[90mInteraction /\x1b[0m Error while handling interaction:`, err); }
     } else if (d.type === 3) { // message component
         if (!d.data.custom_id.startsWith('d2:')) return;
@@ -114,30 +108,6 @@ gateway.on('INTERACTION_CREATE', async (d) => {
         }
     }
 });
-
-// generate response
-async function generate(message, author = message.author) {
-    // load user from database
-    let user = await getUser(author.id);
-
-    // time and check banned
-    const now = Date.now();
-    if (user.banned_until > now) {
-        client.request('POST', `/channels/${message.channel_id}/messages`, ui.bannedMessage(message, author, user));
-        return;
-    }
-
-    // check policy accept status
-    if (user.policy_accept < config.policy.update) {
-        client.request('POST', `/channels/${message.channel_id}/messages`, ui.policyMessage(message, author));
-        return;
-    }
-}
-
-// build conversation
-async function buildConversation(message) {
-
-}
 
 // error catcher
 process.on('uncaughtException', (e) => {

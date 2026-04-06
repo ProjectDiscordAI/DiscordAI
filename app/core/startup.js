@@ -15,13 +15,17 @@ const require = createRequire(import.meta.url);
 import path from 'path';
 import fs from 'fs/promises';
 import crypto from 'crypto';
+import { Daiv2Tool } from './utils/daiv2.js';
 import { DBLESnowflakeField } from './utils/dble-snowflake.js';
+import { CacheManager } from './utils/cache.js';
+import { DAIFallbackModel, DAIProxyModel, DAIUserCustomModel } from './utils/ai.js';
+import * as services from './../ai/services.js';
 import jn_request from '@jnode/request';
 import jn_discord from '@jnode/discord';
 import jn_dble from '@jnode/db/dble';
 const { request } = jn_request;
 const { Client } = jn_discord;
-const { DBLEFile, DBLEDoubleField, DBLEBigInt64Field, DBLEAnyField, DBLEUInt32Field } = jn_dble;
+const { DBLEFile, DBLEDoubleField, DBLEBigInt64Field, DBLEAnyField, DBLEUInt32Field, DBLEUInt8Field } = jn_dble;
 
 // constants
 let { version } = require('./../../package.json');
@@ -71,7 +75,24 @@ try {
     loadingConfig = 'instructions config';
     config.instructions = config.instructions ?? {};
     config.instructions.core = config.instructions.core ?? './instructions/core.md';
+    config.instructions.setup = config.instructions.setup ?? './instructions/setup.md';
     console.log(`\x1b[90m  - \x1b[0mLog config loaded.\x1b[0m`);
+
+    // core configs
+    loadingConfig = 'core config';
+    config.core = config.core ?? {};
+    config.core.lang = config.core.lang ?? 'en-US';
+    config.core.localeStringOptions = config.core.localeStringOptions ?? {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: true,
+        weekday: 'short'
+    };
+    console.log(`\x1b[90m  - \x1b[0mCore config loaded.\x1b[0m`);
 
     // encryption configs
     loadingConfig = 'encryption config';
@@ -114,13 +135,21 @@ try {
     config.users = config.users ?? {};
     config.users.allowedBots = new Set(config.users.allowedBots);
     config.users.banned = new Set(config.users.banned);
-    config.users.admin = new Set(config.users.admin);
+    config.users.dev = new Set(config.users.dev);
     console.log(`\x1b[90m  - \x1b[0mUsers config loaded.\x1b[0m`);
 
     // ui config
     loadingConfig = 'UI config';
     config.ui = config.ui ?? {};
     console.log(`\x1b[90m  - \x1b[0mUI config loaded.\x1b[0m`);
+
+    // ai config
+    loadingConfig = 'AI config';
+    config.ai = config.ai ?? {};
+    config.ai.models = config.ai.models ?? [];
+    config.ai.customModel = config.ai.customModel ?? true;
+    config.ai.customModelOptions = config.ai.customModelOptions ?? true;
+    console.log(`\x1b[90m  - \x1b[0mAI config loaded.\x1b[0m`);
 
     // discord bot configs
     loadingConfig = 'bot config';
@@ -163,9 +192,12 @@ if (config.skipUpdateCheck) {
 // initialize encryption key
 console.log(`\x1b[90m> \x1b[0mInitializing encryption key...`);
 export let encryptionKey;
+export let daiv2Tool;
 try {
     encryptionKey = await fs.readFile(config.encrypt.key);
     console.log(`\x1b[90m  - \x1b[0mLoaded encryption key from \x1b[34m${config.encrypt.key}\x1b[0m.`);
+    daiv2Tool = new Daiv2Tool(encryptionKey);
+    console.log(`\x1b[90m  - \x1b[0mInitialized daiv2 tool.`);
 } catch (err) {
     if (err.code === 'ENOENT') {
         try {
@@ -207,7 +239,7 @@ try {
                     new DBLEDoubleField('policy_accept'),  // last policy accept time in ms (unix epoch)
                     new DBLEDoubleField('banned_until'),   // banned time in ms (unix epoch)
                     new DBLEAnyField(8, 'flags'),          // account flags
-                    new DBLEUInt32Field('RSV')             // reserved
+                    new DBLEAnyField(4, 'RSV')             // reserved
                 ]
             });
             console.log(`\x1b[90m  - \x1b[0mUser database created.\x1b[0m`);
@@ -283,14 +315,64 @@ export const instructions = {};
 let loadingInstruction = 'instruction';
 try {
     // core instruction
-    loadingInstruction = 'core instruction (instructions/core.md)';
+    loadingInstruction = 'core instruction';
     instructions.core = await readOrCreateFile(config.instructions.core, 'You are a helpful assistant.');
     console.log(`\x1b[90m  - \x1b[0mCore instruction loaded.\x1b[0m`);
+
+    // setup instruction
+    loadingInstruction = 'setup instruction';
+    instructions.setup = await readOrCreateFile(config.instructions.setup, 'You\'ll help user setup their personal experience.');
+    console.log(`\x1b[90m  - \x1b[0mSetup instruction loaded.\x1b[0m`);
 } catch (err) {
     console.error(`\x1b[90m  - \x1b[31mError while loading ${loadingInstruction}: ${err.message}\x1b[0m`);
     process.exit(1);
 }
 console.log(`\x1b[90m  - \x1b[32mComplete.\x1b[0m`);
+
+// setup task monitor
+console.log(`\x1b[90m> \x1b[0mSetting up task monitor...`);
+export const tasks = new Set();
+console.log(`\x1b[90m  - \x1b[32mComplete.\x1b[0m`);
+
+// load model
+console.log(`\x1b[90m> \x1b[0mLoading models...`);
+let models = [];
+for (let i of config.ai.models) {
+    // select service
+    const service = services[i.service];
+    if (!service) {
+        console.error(`\x1b[90m  - \x1b[31mUnknown service: ${i.service}, add them in 'app/ai/services.js'.\x1b[0m`);
+        continue;
+    }
+
+    // create model and proxy model
+    models.push(new DAIProxyModel(service.model(i.name, {
+        auth: i.auth ? i.auth.startsWith('env:') ? config.env[i.auth.slice(4)] : i.auth : undefined, // load from env
+        ...i.options
+    })));
+}
+if (config.ai.customModel) models.unshift(new DAIUserCustomModel(services, config.ai.customModelOptions));
+if (models.length < 1) { // no model
+    console.error(`\x1b[90m  - \x1b[31mNo avaliable models to use.\x1b[0m`);
+    process.exit(1);
+}
+export const model = new DAIFallbackModel(models);
+console.log(`\x1b[90m  - \x1b[32mLoaded ${models.length} models.\x1b[0m`);
+
+// create cache managers
+console.log(`\x1b[90m> \x1b[0mCreating cache managers...`);
+export const messageCacher = new CacheManager(null, config.cache.messageCacherOptions);
+export const daiv2Cacher = new CacheManager(null, config.cache.daiv2CacherOptions);
+export const memoryCacher = new CacheManager(null, config.cache.memoryCacherOptions);
+console.log(`\x1b[90m  - \x1b[32mComplete.\x1b[0m`);
+
+// get message
+export function getMessage(channel, message) {
+    return messageCacher.get(`${channel}/${message}`, async () => {
+        try { return await client.request('GET', `/channels/${channel}/messages/${message}`); }
+        catch { return null; }
+    });
+}
 
 // connect to discord
 console.log(`\x1b[90m> \x1b[0mConnecting to Discord...`);
