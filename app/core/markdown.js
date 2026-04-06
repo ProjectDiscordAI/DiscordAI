@@ -56,11 +56,12 @@ async function sendMessage(channel, body, attachments) {
 // stream interact in discord messages
 export async function messageStreamInteract(interactStream, message, author, context) {
     const stream = interactToLine(interactStream);
-    const text = '';
+    let text = '';
     const functions = [];
 
     let lastMsg = message;
-    let codeblock;
+    let codeblock = false;
+    let inQuote = false;
 
     // split flags
     let h1 = { at: 0 };
@@ -73,13 +74,62 @@ export async function messageStreamInteract(interactStream, message, author, con
     let quoBegin = { at: 0 };
     let quoEnd = { at: 0 };
 
+    // clear flags after a message is sent
+    const resetFlags = () => {
+        h1.at = h2.at = h3.at = 0;
+        nextline.at = emptyLine.at = 0;
+        codeBegin.at = codeEnd.at = 0;
+        quoBegin.at = quoEnd.at = 0;
+    };
+
     for await (let i of stream) {
         if (i.type === 'line') {
+            // where a split would occur before adding the line
+            const splitBefore = text.length;
+
             // append text
             text += i.line + '\n';
 
+            // where a split would occur after adding the line
+            const splitAfter = text.length - 1;
+
+            const isQuoteLine = i.line.startsWith('> ');
+
+            // check codeblock
+            if (i.line.startsWith('```')) {
+                if (codeblock) {
+                    codeblock = false;
+                    codeEnd.at = splitAfter;
+                } else {
+                    codeBegin.at = splitBefore;
+                    codeblock = true;
+                }
+            } else if (!codeblock) {
+                if (i.line.startsWith('# ')) {
+                    h1.at = splitBefore;
+                } else if (i.line.startsWith('## ')) {
+                    h2.at = splitBefore;
+                } else if (i.line.startsWith('### ')) {
+                    h3.at = splitBefore;
+                } else if (i.line.trim() === '') {
+                    emptyLine.at = splitAfter;
+                    emptyLine.code = codeblock;
+                }
+
+                if (isQuoteLine && !inQuote) {
+                    quoBegin.at = splitBefore;
+                    inQuote = true;
+                } else if (!isQuoteLine && inQuote) {
+                    quoEnd.at = splitBefore;
+                    inQuote = false;
+                }
+            }
+
+            nextline.at = splitAfter;
+            nextline.code = codeblock;
+
             // check if overflow
-            if (text.length > 1900) {
+            while (text.length > 1900) {
                 // cut!
                 let cut = '';
                 let bef = '';
@@ -87,35 +137,35 @@ export async function messageStreamInteract(interactStream, message, author, con
                 let delb = '';
                 let dele = '';
 
-                // cut by flag
-                if (text.length - h1.at < 1900) {
+                // cut by flag 
+                if (h1.at > 0 && text.length - h1.at < 1900) {
                     cut = text.slice(0, h1.at);
                     text = text.slice(h1.at + 1);
-                } else if (text.length - h2.at < 1900) {
+                } else if (h2.at > 0 && text.length - h2.at < 1900) {
                     cut = text.slice(0, h2.at);
                     text = text.slice(h2.at + 1);
-                } else if (text.length - h3.at < 1900) {
+                } else if (h3.at > 0 && text.length - h3.at < 1900) {
                     cut = text.slice(0, h3.at);
                     text = text.slice(h3.at + 1);
-                } else if (text.length - codeBegin.at < 1900) {
+                } else if (codeBegin.at > 0 && text.length - codeBegin.at < 1900) {
                     cut = text.slice(0, codeBegin.at);
-                    text = text.slice(codeBegin);
-                } else if (text.length - quoBegin.at < 1900) {
+                    text = text.slice(codeBegin.at + 1);
+                } else if (quoBegin.at > 0 && text.length - quoBegin.at < 1900) {
                     cut = text.slice(0, quoBegin.at);
-                    text = text.slice(quoBegin);
-                } else if (text.length - codeEnd.at < 1900) {
+                    text = text.slice(quoBegin.at + 1);
+                } else if (codeEnd.at > 0 && text.length - codeEnd.at < 1900) {
                     cut = text.slice(0, codeEnd.at);
-                    text = text.slice(codeEnd);
-                } else if (text.length - quoEnd.at < 1900) {
+                    text = text.slice(codeEnd.at + 1);
+                } else if (quoEnd.at > 0 && text.length - quoEnd.at < 1900) {
                     cut = text.slice(0, quoEnd.at);
-                    text = text.slice(quoEnd);
-                } else if (text.length - emptyLine.at < 1900) {
+                    text = text.slice(quoEnd.at + 1);
+                } else if (emptyLine.at > 0 && text.length - emptyLine.at < 1900) {
                     cut = text.slice(0, emptyLine.at);
-                    text = text.slice(emptyLine);
+                    text = text.slice(emptyLine.at + 1);
                     if (emptyLine.code) dele = '```';
-                } else if (text.length - nextline.at < 1900) {
+                } else if (nextline.at > 0 && text.length - nextline.at < 1900) {
                     cut = text.slice(0, nextline.at);
-                    text = text.slice(nextline);
+                    text = text.slice(nextline.at + 1);
                     if (nextline.code) dele = '```';
                 } else {
                     cut = text.slice(0, 1900);
@@ -129,7 +179,12 @@ export async function messageStreamInteract(interactStream, message, author, con
                 const trimEnd = trimStart.trimEnd();
                 aft = trimStart.slice(trimEnd.length);
 
-                const msg = await sendMessage(lastMsg.channel_id, {
+                // FIX: If we cut inside a codeblock, ensure the next message correctly starts the markdown block again.
+                if (dele === '```') {
+                    text = '```\n' + text;
+                }
+
+                lastMsg = await sendMessage(lastMsg.channel_id, {
                     message_reference: (lastMsg === message) ? { message_id: message.id } : undefined,
                     content: delb + trimEnd + dele,
                     components: [{
@@ -139,7 +194,17 @@ export async function messageStreamInteract(interactStream, message, author, con
                         }]
                     }]
                 });
+
+                resetFlags();
             }
         }
+    }
+    
+    // flush for the remaining text under 1900 chars
+    if (text.trim().length > 0) {
+        await sendMessage(lastMsg.channel_id, {
+            message_reference: (lastMsg === message) ? { message_id: message.id } : undefined,
+            content: text.trimEnd() + (codeblock ? '\n```' : '')
+        });
     }
 }
