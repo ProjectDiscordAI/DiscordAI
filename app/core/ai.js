@@ -59,9 +59,6 @@ export async function generate(message, author = message.author) {
         // generate
         const stream = messageStreamInteract(await conversation.streamInteract([], {}, {}), message, author);
 
-        for await (let i of stream) {
-
-        }
     } catch (err) {
         console.error(err)
     } finally {
@@ -165,7 +162,7 @@ export async function buildConversation(message, author) {
         // parse as normal message
         let text = '';
         if (btnUrl?.searchParams.get('bef')) text += btnUrl.searchParams.get('bef') ?? '';
-        text += (msg.content ?? '').slice(Number(btnUrl.searchParams.get('delb') ?? 0), (msg.content ?? '').length - Number(btnUrl.searchParams.get('dele') ?? 0));
+        text += (msg.content ?? '').slice(Number(btnUrl?.searchParams.get('delb') ?? 0), (msg.content ?? '').length - Number(btnUrl?.searchParams.get('dele') ?? 0));
         if (btnUrl?.searchParams.get('aft')) text += btnUrl.searchParams.get('aft') ?? '';
         aiMsg.components.push({
             type: 'text',
