@@ -62,6 +62,7 @@ export async function messageStreamInteract(interactStream, message, author, con
     let lastMsg = message;
     let codeblock = false;
     let inQuote = false;
+    let nextDelb = '';
 
     // split flags
     let h1 = { at: 0 };
@@ -134,7 +135,8 @@ export async function messageStreamInteract(interactStream, message, author, con
                 let cut = '';
                 let bef = '';
                 let aft = '\n';
-                let delb = '';
+                let delb = nextDelb;
+                nextDelb = '';
                 let dele = '';
 
                 // cut by flag 
@@ -162,15 +164,15 @@ export async function messageStreamInteract(interactStream, message, author, con
                 } else if (emptyLine.at > 0 && text.length - emptyLine.at < 1900) {
                     cut = text.slice(0, emptyLine.at);
                     text = text.slice(emptyLine.at + 1);
-                    if (emptyLine.code) dele = '```';
+                    if (emptyLine.code) { dele = '```'; nextDelb = '```\n'; } // <-- changed
                 } else if (nextline.at > 0 && text.length - nextline.at < 1900) {
                     cut = text.slice(0, nextline.at);
                     text = text.slice(nextline.at + 1);
-                    if (nextline.code) dele = '```';
+                    if (nextline.code) { dele = '```'; nextDelb = '```\n'; } // <-- changed
                 } else {
                     cut = text.slice(0, 1900);
                     text = text.slice(1900);
-                    if (codeblock) dele = '```';
+                    if (codeblock) { dele = '```'; nextDelb = '```\n'; } // <-- changed
                 }
 
                 // trim
@@ -199,12 +201,12 @@ export async function messageStreamInteract(interactStream, message, author, con
             }
         }
     }
-    
+
     // flush for the remaining text under 1900 chars
     if (text.trim().length > 0) {
         await sendMessage(lastMsg.channel_id, {
             message_reference: (lastMsg === message) ? { message_id: message.id } : undefined,
-            content: text.trimEnd() + (codeblock ? '\n```' : '')
+            content: nextDelb + text.trimEnd() + (codeblock ? '\n```' : '') // <-- Added nextDelb here
         });
     }
 }
