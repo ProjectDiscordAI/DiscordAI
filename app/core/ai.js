@@ -164,9 +164,9 @@ export async function buildConversation(message, author) {
 
         // parse as normal message
         let text = '';
-        if (btnUrl?.searchParams.get('bef')) text += btnUrl.searchParams.get('bef');
-        text += msg.content;
-        if (btnUrl?.searchParams.get('aft')) text += btnUrl.searchParams.get('aft');
+        if (btnUrl?.searchParams.get('bef')) text += btnUrl.searchParams.get('bef') ?? '';
+        text += (msg.content ?? '').slice(Number(btnUrl.searchParams.get('delb') ?? 0), (msg.content ?? '').length - Number(btnUrl.searchParams.get('dele') ?? 0));
+        if (btnUrl?.searchParams.get('aft')) text += btnUrl.searchParams.get('aft') ?? '';
         aiMsg.components.push({
             type: 'text',
             content: text
