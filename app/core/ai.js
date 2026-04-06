@@ -15,6 +15,7 @@ import live from './../ai/live.js';
 import path from 'path';
 import fs from 'fs/promises';
 import * as ui from './ui.js';
+import { messageStreamInteract } from './markdown.js';
 
 // load toolkits
 const toolkits = {};
@@ -55,61 +56,11 @@ export async function generate(message, author = message.author) {
         // build conversation
         const conversation = await buildConversation(message, author);
 
-        try {
-            const COLOR_RESET = '\x1b[0m';
-            const WHITE = '\x1b[37m';
-            const LIGHT_GRAY = '\x1b[90m';
-            const DEEP_BLUE = '\x1b[34m';
-            const LIGHT_BLUE = '\x1b[94m';
+        // generate
+        const stream = messageStreamInteract(await conversation.streamInteract([], {}, {}), message, author);
 
-            const stream = await conversation.streamInteract();
+        for await (let i of stream) {
 
-            let id = 0;
-            for await (const i of stream) {
-                if (i.type === 'component') {
-                    if (i.component.type === 'text') {
-                        if (id % 2 === 0) process.stdout.write(WHITE + i.component.content + COLOR_RESET);
-                        else process.stdout.write(LIGHT_GRAY + i.component.content + COLOR_RESET);
-                    } else if (i.component.type === 'thought') {
-                        if (id % 2 === 0) process.stdout.write(DEEP_BLUE + i.component.content + COLOR_RESET);
-                        else process.stdout.write(LIGHT_BLUE + i.component.content + COLOR_RESET);
-                    } else if (i.component.type === 'action') {
-                        console.log(`\n--- Action (${i.component.name}) Request ---`);
-                        console.log(JSON.stringify(i.component.action, null, 3).split('\n').map(t => '| ' + t).join('\n'));
-                        if (i.component.reaction) {
-                            console.log(`\n--- Action (${i.component.name}) Result ---`);
-                            console.log(JSON.stringify(i.component.reaction, null, 3).split('\n').map(t => '| ' + t).join('\n'));
-                            console.log('');
-                        }
-                    } else if (i.component.type === 'file') {
-                        console.log('\n--- File Received ---');
-                        console.log(`MIME Type: ${i.component.mimeType}`);
-                    } else if (i.component.type === 'function_call') {
-                        console.log(`\n--- Function (${i.component.name}) Call ---`);
-                        console.log(JSON.stringify(i.component.arguments, null, 3).split('\n').map(t => '| ' + t).join('\n'));
-                    }
-                } else if (i.type === 'continue') {
-                    if (i.component.type === 'text') {
-                        if (id % 2 === 0) process.stdout.write(WHITE + i.content + COLOR_RESET);
-                        else process.stdout.write(LIGHT_GRAY + i.content + COLOR_RESET);
-                    } else if (i.component.type === 'action') {
-                        console.log(`\n--- Action (${i.component.name}) Result ---`);
-                        console.log(JSON.stringify(i.component.reaction, null, 3).split('\n').map(t => '| ' + t).join('\n'));
-                        console.log('');
-                    } else if (i.component.type === 'thought') {
-                        if (id % 2 === 0) process.stdout.write(DEEP_BLUE + i.component.content + COLOR_RESET);
-                        else process.stdout.write(LIGHT_BLUE + i.component.content + COLOR_RESET);
-                    }
-                } else if (i.type === 'end') {
-                    console.log('\n\n--- Conversation Ended ---');
-                    console.log(JSON.stringify(i.conversation.last, null, 3));
-                }
-                id++;
-            }
-        } catch (err) {
-            console.error(err);
-            console.error(await err.res.json());
-            return;
         }
     } catch (err) {
         console.error(err)

@@ -8,11 +8,13 @@ by JustApple
 */
 
 // dependencies
-import { config, getTime } from './../core/startup.js';
+import { config, getTime, user } from './../core/startup.js';
 
 // live info
 export default function live(message, author) {
     let info = `# Live infomation\n\n`;
+    info += `- Your Discord ID: ${user.id}\n`;
+    info += `- Current channel: ${message.channel_id}\n`;
     info += `- Current time: ${getTime(Date.now())}\n`;
     info += `\n----`;
 }
