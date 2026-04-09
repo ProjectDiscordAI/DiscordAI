@@ -146,6 +146,8 @@ try {
     // ui config
     loadingConfig = 'UI config';
     config.ui = config.ui ?? {};
+    config.ui.generateErrorTitle = config.ui.generateErrorTitle ?? 'Error';
+    config.ui.generateErrorMessage = config.ui.generateErrorMessage ?? 'Something went wrong while generating the response, plase `forward` this message to the developer if this keeps happening.'
     console.log(`\x1b[90m  - \x1b[0mUI config loaded.\x1b[0m`);
 
     // ai config
@@ -168,6 +170,7 @@ try {
     config.bot.commands = config.bot.commands ?? {}; // command binding
     config.bot.commands.dashboard = config.bot.commands.dashboard ?? 'dashboard';
     config.bot.commands.generate = config.bot.commands.generate ?? 'Generate';
+    config.bot.commands.report = config.bot.commands.report ?? 'Report';
     console.log(`\x1b[90m  - \x1b[0mBot config loaded.\x1b[0m`);
 } catch (err) {
     console.error(`\x1b[90m  - \x1b[31mError while loading ${loadingConfig}: ${err.message}\x1b[0m`);
@@ -467,6 +470,20 @@ try {
             console.log(`\x1b[90m  - \x1b[0mCreated command: \x1b[34m${config.bot.commands.generate}\x1b[0m.`);
         } catch (err) {
             console.error(`\x1b[90m  - \x1b[31mFailed to generate command "${config.bot.commands.generate}": ${err.message}`);
+        }
+    }
+
+    // check report command
+    if (!commands.find(c => c.name === config.bot.commands.report)) {
+        // regist one
+        try {
+            await client.request('POST', `/applications/${user.id}/commands`, {
+                name: config.bot.commands.report,
+                type: 3
+            });
+            console.log(`\x1b[90m  - \x1b[0mCreated command: \x1b[34m${config.bot.commands.report}\x1b[0m.`);
+        } catch (err) {
+            console.error(`\x1b[90m  - \x1b[31mFailed to generate command "${config.bot.commands.report}": ${err.message}`);
         }
     }
 } catch (err) {

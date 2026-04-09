@@ -61,6 +61,7 @@ gateway.on('INTERACTION_CREATE', async (d) => {
         // bind command
         if (command === config.bot.commands.dashboard) command = 'dashboard';
         if (command === config.bot.commands.generate) command = 'generate';
+        if (command === config.bot.commands.report) command = 'report';
 
         // check if command exists
         if (!interactions.command[command]) return;
@@ -76,7 +77,7 @@ gateway.on('INTERACTION_CREATE', async (d) => {
         try { url = new URL(d.data.custom_id) } catch { return; } // ignore wrong format button id
 
         // check user
-        if (author.id !== url.hash.slice(1)) {
+        if (url.hash && author.id !== url.hash.slice(1)) {
             try {
                 await client.request('POST', `/interactions/${d.id}/${d.token}/callback`, {
                     type: 4, data: ui.notYourInteraction(d)

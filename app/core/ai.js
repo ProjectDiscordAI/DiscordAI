@@ -54,10 +54,33 @@ export async function generate(message, author = message.author) {
         tasks.add(task);
 
         // build conversation
-        const conversation = await buildConversation(message, author);
+        const { conversation, instruction, rootMessage } = await buildConversation(message, author);
+
+        // build functions
+        const functions = [toolkits.default];
+
+        // build agent
+        const agent = new ai.AIAgent(model, {
+            instructions: instruction,
+            functions: functions
+        });
+
+        // build context
+        const ctx = {
+            rootMessage: rootMessage,
+            conversation: conversation,
+            author: author,
+            agent: agent
+        };
+
+        // start typing
+        client.request('POST', `/channels/${message.channel_id}/typing`, {});
+
+        // log
+        console.log(`\x1b[90mGenerate / \x1b[34m${author.username}\x1b[90m (${author.id})\x1b[0m activates an response with ${conversation.length} messages.`);
 
         // generate
-        await messageStreamInteract(await conversation.streamInteract([], {}, {}), message, author);
+        await messageStreamInteract(await agent.streamInteract(conversation, ctx, {}), ctx);
 
     } catch (err) {
         console.error(err)
@@ -72,6 +95,7 @@ export async function generate(message, author = message.author) {
 export async function buildConversation(message, author) {
     let conversation = [];
     let ref = message;
+    let rootMessage = message;
 
     // loop for collecting messages
     let instruction = '';
@@ -117,9 +141,9 @@ export async function buildConversation(message, author) {
             if (msg.embeds?.[0]?.image?.url) {
                 const url = new URL(msg.embeds[0].image.url);
 
-                if (path.extname(url.pathname) === '.daiv2') {
+                if (url.pathname.endsWith('/msg.daiv2')) {
                     const data = await daiv2Cacher.get(`${msg.channel_id}/${msg.id}`, async () => {
-                        return daiv2Tool.decrypt(await (await request('GET', url)).body())?.data;
+                        return daiv2Tool.decrypt(await (await request('GET', url)).buffer())?.data;
                     });
 
                     // the data exists
@@ -130,6 +154,9 @@ export async function buildConversation(message, author) {
 
                         continue;
                     }
+                } else if (url.pathname.endsWith('/err.daiv2')) {
+                    rootMessage = ref;
+                    continue;
                 }
             }
         } else { // user message
@@ -171,7 +198,7 @@ export async function buildConversation(message, author) {
         });
 
         // push to conversation
-        conversation.push(aiMsg);
+        conversation.unshift(aiMsg);
     }
 
     // build instruction
@@ -215,15 +242,6 @@ export async function buildConversation(message, author) {
         }
     }
 
-    // build functions
-    const functions = [toolkits.default];
-
-    // build agent
-    const agent = new ai.AIAgent(model, {
-        instructions: instruction,
-        functions: functions
-    });
-
     // return
-    return new ai.AIConversation(agent, conversation);
+    return { conversation, instruction, rootMessage };
 }

@@ -12,7 +12,11 @@ import jn_ai from '@jnode/ai';
 import jn_dc from '@jnode/discord';
 const { AIConversation } = jn_ai;
 const { Attachment } = jn_dc;
-import { client, messageCacher } from './startup.js';
+import { config, client, messageCacher, daiv2Tool } from './startup.js';
+import * as ui from './ui.js';
+
+// constants
+const CODEBLOCK_REGEX = /(`{3,})(.*)/;
 
 // interact stream to line stream
 async function* interactToLine(stream) {
@@ -29,7 +33,7 @@ async function* interactToLine(stream) {
                     buf = buf.slice(line + 1);
                     line = buf.indexOf('\n');
                 }
-            } else yield i;
+            } yield i;
         } else if (i.type === 'continue') {
             if (last.type === 'text') {
                 buf += i.content ?? '';
@@ -47,6 +51,7 @@ async function* interactToLine(stream) {
     }
 }
 
+// send message with cache
 async function sendMessage(channel, body, attachments) {
     const msg = await client.request('POST', `/channels/${channel}/messages`, body, attachments);
     messageCacher.set(`${msg.channel_id}/${msg.id}`, msg);
@@ -54,175 +59,258 @@ async function sendMessage(channel, body, attachments) {
 }
 
 // stream interact in discord messages
-export async function messageStreamInteract(interactStream, message, author, context) {
+export async function messageStreamInteract(interactStream, ctx) {
     const stream = interactToLine(interactStream);
     let text = '';
-    const functions = [];
+    let code = '';
+
+    let autoRun = true;
+    const calls = [];
+    const responses = [];
+
+    const message = ctx.rootMessage;
+    const author = ctx.author;
+    const conversation = ctx.conversation;
 
     let lastMsg = message;
-    let codeblock = false;
-    let inQuote = false;
-    let nextDelb = '';
 
-    let c = 1;
+    let count = 1;
 
-    // split flags
-    let h1 = { at: 0 };
-    let h2 = { at: 0 };
-    let h3 = { at: 0 };
-    let nextline = { at: 0 };
-    let emptyLine = { at: 0 };
-    let codeBegin = { at: 0 };
-    let codeEnd = { at: 0 };
-    let quoBegin = { at: 0 };
-    let quoEnd = { at: 0 };
+    let inCodeblock = false;
+    let codeblockLang = '';
 
-    // clear flags after a message is sent
-    const resetFlags = () => {
-        h1.at = h2.at = h3.at = 0;
-        nextline.at = emptyLine.at = 0;
-        codeBegin.at = codeEnd.at = 0;
-        quoBegin.at = quoEnd.at = 0;
-    };
+    let h1At = 0;
+    let h2At = 0;
+    let h3At = 0;
+    let emptyLineAt = 0;
+    let newLineAt = 0;
 
-    for await (let i of stream) {
-        if (i.type === 'line') {
-            // where a split would occur before adding the line
-            const splitBefore = text.length;
+    // type
+    function type() {
+        return client.request('POST', `/channels/${message.channel_id}/typing`, {});
+    }
+    await type();
 
-            // append text
-            text += i.line + '\n';
-
-            // where a split would occur after adding the line
-            const splitAfter = text.length - 1;
-
-            const isQuoteLine = i.line.startsWith('> ');
-
-            // check codeblock
-            if (i.line.startsWith('```')) {
-                if (codeblock) {
-                    codeblock = false;
-                    codeEnd.at = splitAfter;
+    try {
+        for await (let i of stream) {
+            if (i.type === 'line') {
+                if (inCodeblock) {
+                    if (i.line.startsWith('```')) {
+                        if (code.length + 8 + codeblockLang.length > 2000) { // send as file
+                            const langDot = codeblockLang.indexOf('.');
+                            lastMsg = await sendMessage(lastMsg.channel_id, {
+                                allowed_mentions: { parse: [], replied_user: message.author.id === author.id },
+                                message_reference: (lastMsg === message) ? { message_id: message.id } : undefined,
+                                content: text,
+                                components: [{
+                                    type: 1, components: [{
+                                        type: 2, style: 5, label: `${count++} / ~`,
+                                        url: `https://discord.com/channels/${lastMsg.guild_id ?? '@me'}/${lastMsg.channel_id}/${lastMsg.id}`
+                                    }]
+                                }],
+                                attachments: [{
+                                    id: 0,
+                                    title: (langDot >= 0) ? codeblockLang.slice(0, langDot) : 'code'
+                                }]
+                            }, [new Attachment((langDot >= 0) ? 'code' + codeblockLang.slice(langDot) : codeblockLang ? `code.${codeblockLang}` : 'code.txt', 'text/plain', code)]);
+                            await type();
+                            code = '';
+                            text = '';
+                            codeblockLang = '';
+                        } else if (code.length + 8 + codeblockLang.length + text.length > 2000) {
+                            // send text part
+                            lastMsg = await sendMessage(lastMsg.channel_id, {
+                                allowed_mentions: { parse: [], replied_user: message.author.id === author.id },
+                                message_reference: (lastMsg === message) ? { message_id: message.id } : undefined,
+                                content: text,
+                                components: [{
+                                    type: 1, components: [{
+                                        type: 2, style: 5, label: `${count++} / ~`,
+                                        url: `https://discord.com/channels/${lastMsg.guild_id ?? '@me'}/${lastMsg.channel_id}/${lastMsg.id}`
+                                    }]
+                                }]
+                            });
+                            await type();
+                            text = '```' + codeblockLang + '\n' + code + '```\n';
+                            code = '';
+                            codeblockLang = '';
+                        } else {
+                            // bring code to text
+                            text += '```' + codeblockLang + '\n' + code + '```\n';
+                            code = '';
+                            codeblockLang = '';
+                        }
+                        inCodeblock = false;
+                    } else {
+                        code += i.line + '\n';
+                    }
                 } else {
-                    codeBegin.at = splitBefore;
-                    codeblock = true;
+                    if (i.line.startsWith('```')) {
+                        codeblockLang = i.line.slice(3);
+                        inCodeblock = true;
+                    } else {
+                        if (i.line === '') emptyLineAt = text.length;
+                        newLineAt = text.length;
+                        text += i.line + '\n';
+
+                        if (text.length > 2000) {
+                            if (text.length - h1At <= 2000) {
+                                lastMsg = await sendMessage(lastMsg.channel_id, {
+                                    allowed_mentions: { parse: [], replied_user: message.author.id === author.id },
+                                    message_reference: (lastMsg === message) ? { message_id: message.id } : undefined,
+                                    content: text.slice(0, h1At),
+                                    components: [{
+                                        type: 1, components: [{
+                                            type: 2, style: 5, label: `${count++} / ~`,
+                                            url: `https://discord.com/channels/${lastMsg.guild_id ?? '@me'}/${lastMsg.channel_id}/${lastMsg.id}`
+                                        }]
+                                    }]
+                                });
+                                await type();
+                                text = text.slice(h1At);
+                            } else if (text.length - h2At <= 2000) {
+                                lastMsg = await sendMessage(lastMsg.channel_id, {
+                                    allowed_mentions: { parse: [], replied_user: message.author.id === author.id },
+                                    message_reference: (lastMsg === message) ? { message_id: message.id } : undefined,
+                                    content: text.slice(0, h2At),
+                                    components: [{
+                                        type: 1, components: [{
+                                            type: 2, style: 5, label: `${count++} / ~`,
+                                            url: `https://discord.com/channels/${lastMsg.guild_id ?? '@me'}/${lastMsg.channel_id}/${lastMsg.id}`
+                                        }]
+                                    }]
+                                });
+                                await type();
+                                text = text.slice(h2At);
+                            } else if (text.length - h3At <= 2000) {
+                                lastMsg = await sendMessage(lastMsg.channel_id, {
+                                    allowed_mentions: { parse: [], replied_user: message.author.id === author.id },
+                                    message_reference: (lastMsg === message) ? { message_id: message.id } : undefined,
+                                    content: text.slice(0, h3At),
+                                    components: [{
+                                        type: 1, components: [{
+                                            type: 2, style: 5, label: `${count++} / ~`,
+                                            url: `https://discord.com/channels/${lastMsg.guild_id ?? '@me'}/${lastMsg.channel_id}/${lastMsg.id}`
+                                        }]
+                                    }]
+                                });
+                                await type();
+                                text = text.slice(h3At);
+                            } else if (text.length - emptyLineAt <= 2000) {
+                                lastMsg = await sendMessage(lastMsg.channel_id, {
+                                    allowed_mentions: { parse: [], replied_user: message.author.id === author.id },
+                                    message_reference: (lastMsg === message) ? { message_id: message.id } : undefined,
+                                    content: text.slice(0, emptyLineAt),
+                                    components: [{
+                                        type: 1, components: [{
+                                            type: 2, style: 5, label: `${count++} / ~`,
+                                            url: `https://discord.com/channels/${lastMsg.guild_id ?? '@me'}/${lastMsg.channel_id}/${lastMsg.id}`
+                                        }]
+                                    }]
+                                });
+                                await type();
+                                text = text.slice(emptyLineAt);
+                            } else if (text.length - newLineAt <= 2000) {
+                                lastMsg = await sendMessage(lastMsg.channel_id, {
+                                    allowed_mentions: { parse: [], replied_user: message.author.id === author.id },
+                                    message_reference: (lastMsg === message) ? { message_id: message.id } : undefined,
+                                    content: text.slice(0, newLineAt),
+                                    components: [{
+                                        type: 1, components: [{
+                                            type: 2, style: 5, label: `${count++} / ~`,
+                                            url: `https://discord.com/channels/${lastMsg.guild_id ?? '@me'}/${lastMsg.channel_id}/${lastMsg.id}`
+                                        }]
+                                    }]
+                                });
+                                await type();
+                                text = text.slice(newLineAt);
+                            } else {
+                                while (text.length > 2000) {
+                                    lastMsg = await sendMessage(lastMsg.channel_id, {
+                                        allowed_mentions: { parse: [], replied_user: message.author.id === author.id },
+                                        message_reference: (lastMsg === message) ? { message_id: message.id } : undefined,
+                                        content: text.slice(0, 2000),
+                                        components: [{
+                                            type: 1, components: [{
+                                                type: 2, style: 5, label: `${count++} / ~`,
+                                                url: `https://discord.com/channels/${lastMsg.guild_id ?? '@me'}/${lastMsg.channel_id}/${lastMsg.id}`
+                                            }]
+                                        }]
+                                    });
+                                    text = text.slice(2000);
+                                }
+                                await type();
+                            }
+                        }
+                    }
                 }
-            } else if (!codeblock) {
-                if (i.line.startsWith('# ')) {
-                    h1.at = splitBefore;
-                } else if (i.line.startsWith('## ')) {
-                    h2.at = splitBefore;
-                } else if (i.line.startsWith('### ')) {
-                    h3.at = splitBefore;
-                } else if (i.line.trim() === '') {
-                    emptyLine.at = splitAfter;
-                    emptyLine.code = codeblock;
+            } else if (i.type === 'component') {
+                if (i.component.type === 'function_call') {
+                    const func = ctx.agent._functions[i.component.name];
+                    calls.push({
+                        name: i.component.name,
+                        info: func?.info?.(i.component.arguments, ctx._context) ?? i.component.name,
+                        detail: func?.detail?.(i.component.arguments, ctx._context) ?? i.component.name,
+                    });
+                    console.log(calls[calls.length - 1]);
+                } else if (i.component.type === 'function_response') {
+                    responses.push(i.component);
+                    console.log(responses[responses.length - 1]);
                 }
-
-                if (isQuoteLine && !inQuote) {
-                    quoBegin.at = splitBefore;
-                    inQuote = true;
-                } else if (!isQuoteLine && inQuote) {
-                    quoEnd.at = splitBefore;
-                    inQuote = false;
-                }
-            }
-
-            nextline.at = splitAfter;
-            nextline.code = codeblock;
-
-            // check if overflow
-            while (text.length > 1900) {
-                // cut!
-                let cut = '';
-                let bef = '';
-                let aft = '\n';
-                let delb = nextDelb;
-                nextDelb = '';
-                let dele = '';
-
-                // cut by flag 
-                if (h1.at > 0 && text.length - h1.at < 1900) {
-                    cut = text.slice(0, h1.at);
-                    text = text.slice(h1.at + 1);
-                } else if (h2.at > 0 && text.length - h2.at < 1900) {
-                    cut = text.slice(0, h2.at);
-                    text = text.slice(h2.at + 1);
-                } else if (h3.at > 0 && text.length - h3.at < 1900) {
-                    cut = text.slice(0, h3.at);
-                    text = text.slice(h3.at + 1);
-                } else if (codeBegin.at > 0 && text.length - codeBegin.at < 1900) {
-                    cut = text.slice(0, codeBegin.at);
-                    text = text.slice(codeBegin.at + 1);
-                } else if (quoBegin.at > 0 && text.length - quoBegin.at < 1900) {
-                    cut = text.slice(0, quoBegin.at);
-                    text = text.slice(quoBegin.at + 1);
-                } else if (codeEnd.at > 0 && text.length - codeEnd.at < 1900) {
-                    cut = text.slice(0, codeEnd.at);
-                    text = text.slice(codeEnd.at + 1);
-                } else if (quoEnd.at > 0 && text.length - quoEnd.at < 1900) {
-                    cut = text.slice(0, quoEnd.at);
-                    text = text.slice(quoEnd.at + 1);
-                } else if (emptyLine.at > 0 && text.length - emptyLine.at < 1900) {
-                    cut = text.slice(0, emptyLine.at);
-                    text = text.slice(emptyLine.at + 1);
-                    if (emptyLine.code) { dele = '\n```'; nextDelb = '```\n'; } // <-- changed
-                } else if (nextline.at > 0 && text.length - nextline.at < 1900) {
-                    cut = text.slice(0, nextline.at);
-                    text = text.slice(nextline.at + 1);
-                    if (nextline.code) { dele = '\n```'; nextDelb = '```\n'; } // <-- changed
-                } else {
-                    cut = text.slice(0, 1900);
-                    text = text.slice(1900);
-                    if (codeblock) { dele = '\n```'; nextDelb = '```\n'; } // <-- changed
-                }
-
-                // trim
-                const trimStart = cut.trimStart();
-                bef = cut.slice(0, cut.length - trimStart.length);
-                const trimEnd = trimStart.trimEnd();
-                aft = trimStart.slice(trimEnd.length);
-
-                if (dele === '```') {
-                    text = '```\n' + text;
-                }
+            } else if (i.type === 'end') {
+                if (!text.trim() && (calls.length === 0) && (responses.length === 0)) return;
 
                 lastMsg = await sendMessage(lastMsg.channel_id, {
+                    allowed_mentions: { parse: [], replied_user: message.author.id === author.id },
                     message_reference: (lastMsg === message) ? { message_id: message.id } : undefined,
-                    content: delb + trimEnd + dele,
-                    components: [{
-                        type: 1, components: [{
-                            type: 2, style: 5, label: `${c++} / ~`,
-                            url: `https://discord.com/channels/${lastMsg.guild_id ?? '@me'}/${lastMsg.channel_id}/${lastMsg.id}?bef=${encodeURIComponent(bef)}&aft=${encodeURIComponent(aft)}&delb=${delb.length}&dele=${dele.length}`
-                        }]
-                    }]
-                });
-
-                resetFlags();
+                    embeds: (calls.length > 0 || responses.length > 0 || count > 1) ? [{
+                        color: 0x000000,
+                        image: { url: 'attachment://msg.daiv2' },
+                        description: ui.functionInfo(calls, responses)
+                    }] : [],
+                    content: text,
+                    components: (count > 1) ? [{
+                        type: 1, components: [
+                            ...(count > 1 ? [{
+                                type: 2, style: 5, label: `${count} / ${count}`,
+                                url: `https://discord.com/channels/${lastMsg.guild_id ?? '@me'}/${lastMsg.channel_id}/${lastMsg.id}`
+                            }] : [])
+                        ]
+                    }] : undefined
+                }, (calls.length > 0 || responses.length > 0 || count > 1) ? [
+                    new Attachment(
+                        'msg.daiv2', 'application/x-daiv2',
+                        daiv2Tool.encrypt({
+                            current: i.conversation.last,
+                            ref: message.id
+                        })
+                    )
+                ] : undefined).catch(async e => console.error(await e.res.text()));
             }
         }
-    }
-
-    // final flush for the remaining text under 1900 chars
-    if (text.trim().length > 0) {
-        const delb = nextDelb;
-        const dele = codeblock ? '\n```' : '';
-
-        // trim
-        const trimStart = text.trimStart();
-        const bef = text.slice(0, text.length - trimStart.length);
-        const trimEnd = trimStart.trimEnd();
-        const aft = trimStart.slice(trimEnd.length);
-
-        await sendMessage(lastMsg.channel_id, {
+    } catch (err) {
+        console.error(`\x1b[90mGenerate /\x1b[0m Error while generating response:`, err.message);
+        lastMsg = await sendMessage(lastMsg.channel_id, {
+            allowed_mentions: { parse: [], replied_user: message.author.id === author.id },
             message_reference: (lastMsg === message) ? { message_id: message.id } : undefined,
-            content: delb + trimEnd + dele,
+            embeds: [{
+                color: 0xFF0000,
+                image: { url: 'attachment://err.daiv2' },
+                title: config.ui.generateErrorTitle,
+                description: config.ui.generateErrorMessage
+            }],
             components: [{
-                type: 1, components: [{
-                    type: 2, style: 5, label: `${c} / ${c}`,
-                    url: `https://discord.com/channels/${lastMsg.guild_id ?? '@me'}/${lastMsg.channel_id}/${lastMsg.id}?bef=${encodeURIComponent(bef)}&aft=${encodeURIComponent(aft)}&delb=${delb.length}&dele=${dele.length}`
-                }]
+                type: 1, components: [
+                    ...(count > 1 ? [{
+                        type: 2, style: 5, label: `${count} / ${count}`, emoji: { name: '⚠️' },
+                        url: `https://discord.com/channels/${lastMsg.guild_id ?? '@me'}/${lastMsg.channel_id}/${lastMsg.id}`
+                    }] : []),
+                    {
+                        type: 2, style: 2, emoji: { name: '🔄' },
+                        custom_id: `d2:regen?ch=${message.channel_id}&msg=${message.id}`
+                    }
+                ]
             }]
-        });
+        }, [new Attachment('err.daiv2', 'application/x-daiv2', daiv2Tool.encrypt({ msg: err.message, code: err.code, cause: err.cause, stack: err.stack, conversation }))]);
     }
 }

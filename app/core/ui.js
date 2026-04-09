@@ -8,7 +8,7 @@ by JustApple
 */
 
 // load config and bot info
-import { config, user } from './startup.js';
+import { config, user, tasks } from './startup.js';
 
 // discord ai v2 button custom id format
 // 'd2:<name>?<key>=<value>&<key>=<value>...#<target_user>' (uri format)
@@ -216,13 +216,17 @@ export function devDashboard(d, user) {
                     type: 10, // text
                     content: `# Dashboard (Dev)`
                 },
+                {
+                    type: 10, // text
+                    content: `\`\`\`\nWorking tasks: ${tasks.size}\n\`\`\``
+                },
                 { type: 14 }, // divider
                 {
                     type: 1, // action row
                     components: [
                         {
                             type: 2, style: 2, // secondary button
-                            label: 'Delete account', custom_id: `d2:admDelAcc#${user.id}`
+                            label: 'Delete account', custom_id: `d2:devDelAcc#${user.id}`
                         }
                     ]
                 },
@@ -246,4 +250,28 @@ export function generatingCommand() {
             ]
         }]
     };
+}
+
+// generating content message
+export function regeneratingButton() {
+    return {
+        flags: 1 << 15 | 1 << 6,
+        embeds: [],
+        components: [{
+            type: 17,
+            id: 1_006, // ids over 1000 is discordai's special message flag
+            components: [
+                {
+                    type: 10, // text
+                    content: `Responding to the message...`
+                }
+            ]
+        }]
+    };
+}
+
+export function functionInfo(calls, responses) {
+    return (calls.length > 0 || responses.length > 0) ?
+        (responses.length > 0 ? `\`${responses.length}\` calls completed.\n` : '') + (calls.length > 0 ? `**>** ${calls.map(c => c.info ?? 'UNKNOWN').join(', ')}` : '') :
+        'Completed.';
 }
