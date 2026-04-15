@@ -9,7 +9,7 @@ by JustApple
 
 // dependencies
 import jn_ai from '@jnode/ai';
-const { AIRemoteFunction } = jn_ai;
+const { AIRemoteFunction, AIFunction } = jn_ai;
 
 // discord ai fallback model
 export class DAIFallbackModel {
@@ -33,11 +33,17 @@ export class DAIFallbackModel {
         throw e;
     }
 
-    async streamInteract(agent, conversation, context = {}, options = {}) {
+    async *streamInteract(agent, conversation, context = {}, options = {}) {
         let e;
         for (let i of this.models) {
-            try { return await i.streamInteract(agent, conversation, context, options); }
-            catch (err) { e = err; }
+            try {
+                for await (let e of i.streamInteract(agent, conversation, context, options)) {
+                    yield e;
+                }
+                return;
+            } catch (err) {
+                e = err;
+            }
         }
         throw e;
     }
@@ -48,6 +54,9 @@ export class DAIProxyModel {
     constructor(model, options = {}) {
         this.model = model;
         this._info = options.info;
+        this.basePrice = BigInt(options.basePrice ?? 0);
+        this.inputPrice = BigInt(options.inputPrice ?? 60_000);
+        this.outputPrice = BigInt(options.outputPrice ?? 360_000);
     }
 
     info() {
@@ -56,12 +65,21 @@ export class DAIProxyModel {
         });
     }
 
-    interact(agent, conversation, context = {}, options = {}) {
-        return this.model.interact(agent, conversation, context._context, options);
+    async interact(agent, conversation, context = {}, options = {}) {
+        const res = await this.model.interact(agent, conversation, context._context, options);
+        res.meta.price = this.basePrice + BigInt(res.meta.inputTotal ?? 0) * this.inputPrice + BigInt(res.meta.outputTotal ?? 0) * this.outputPrice;
+        return res;
     }
 
-    streamInteract(agent, conversation, context = {}, options = {}) {
-        return this.model.streamInteract(agent, conversation, context._context, options);
+    async *streamInteract(agent, conversation, context = {}, options = {}) {
+        const stream = this.model.streamInteract(agent, conversation, context._context, options);
+        for await (let i of stream) {
+            if (i.type === 'end') {
+                i.conversation.meta.price = this.basePrice + BigInt(i.conversation.meta.inputTotal ?? 0) * this.inputPrice + BigInt(i.conversation.meta.outputTotal ?? 0) * this.outputPrice;
+            }
+            yield i;
+        }
+        return;
     }
 }
 
@@ -109,3 +127,7 @@ export class DAIToolkit {
         this.kit = tools;
     }
 }
+
+export const unknownFunction = new AIFunction('UNKNOWN', 'UNKNOWN_FUNCTION', {}, (params, ctx) => {
+    return { status: 'ERROR', code: 'UNKNOWN_FUNCTION', message: `Sorry, this function is not avaliable. Maybe this function is not in user <@${ctx.author.id}> **${ctx.author.username}**'s toolkits.` }
+});

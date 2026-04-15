@@ -10,15 +10,17 @@
         ]
     },
     "ai": {
-        "models": [
-            {
-                "service": "gemini",
-                "auth": "env:gemini_key",
-                "name": "gemma-4-31b-it",
-                "options": {
-                    "thinkingLevel": "none"
+        "models": {
+            "default": [
+                {
+                    "service": "gemini",
+                    "auth": "env:gemini_key",
+                    "name": "gemma-4-31b-it",
+                    "options": {
+                        "thinkingLevel": "none"
+                    }
                 }
-            }
-        ]
+            ]
+        }
     }
 }

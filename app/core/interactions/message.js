@@ -8,9 +8,10 @@ by JustApple
 */
 
 // load config and client
-import { config, client, userDB, getUser, user } from './../startup.js';
+import { config, client, userDB, getUser, user, daiv2Cacher, daiv2Tool, getMessage } from './../startup.js';
 import * as ui from './../ui.js';
 import { generate as gen } from './../ai.js';
+import { request } from '@jnode/request';
 
 // accept tos and pp
 export async function tosppAcpt(d) {
@@ -83,4 +84,105 @@ export async function regen(d) {
     // delete error and loading
     await client.request('DELETE', `/webhooks/${user.id}/${d.token}/messages/@original`);
     await client.request('DELETE', `/channels/${d.message.channel_id}/messages/${d.message.id}`);
+}
+
+// run functions
+export async function run(d) {
+    const author = d.user || d.member.user;
+
+    // loading
+    await client.request('POST', `/interactions/${d.id}/${d.token}/callback`, {
+        type: 4, // channel message
+        data: ui.regeneratingButton(d)
+    });
+
+    // generate response
+    await gen(d.message, author);
+
+    // delete loading and remove components
+    await client.request('PATCH', `/channels/${d.message.channel_id}/messages/${d.message.id}`, {
+        components: (d.message.components[0].components[0].type === 5) ? [
+            d.message.components[0].components[0]
+        ] : []
+    });
+    await client.request('DELETE', `/webhooks/${user.id}/${d.token}/messages/@original`);
+}
+
+// ignore functions
+export async function ignore(d) {
+    const author = d.user || d.member.user;
+
+    // remove components
+    await client.request('POST', `/interactions/${d.id}/${d.token}/callback`, {
+        type: 7, // update message
+        data: {
+            components: (d.message.components[0].components[0].type === 5) ? [
+                d.message.components[0].components[0]
+            ] : []
+        }
+    });
+}
+
+// function info
+export async function info(d, params) {
+    const author = d.user || d.member.user;
+
+    // get daiv2 and calls
+    const msg = d.message.embeds?.[0]?.image?.url ? d.message : await getMessage(params.get('ch'), params.get('msg'));
+    const url = new URL(msg.embeds[0].image.url);
+    const data = await daiv2Cacher.get(`${msg.channel_id}/${msg.id}`, async () => {
+        return daiv2Tool.decrypt(await (await request('GET', url)).buffer())?.data;
+    });
+    const calls = data.calls ?? [];
+
+    const i = Number(params.get('i')) ?? 0;
+
+    // response
+    await client.request('POST', `/interactions/${d.id}/${d.token}/callback`, {
+        type: 4, // channel message
+        data: {
+            allowed_mentions: { parse: [] },
+            flags: 1 << 15 | 1 << 6,
+            components: [{
+                type: 17,
+                components: [
+                    {
+                        type: 10, // text
+                        content: `${config.ui.callInfoTitle} (${i + 1}/${calls.length})`
+                    },
+                    {
+                        type: 10, // text
+                        content: `**${calls[i].info}**`
+                    },
+                    {
+                        type: 10, // text
+                        content: `-# \`${calls[i].name}\``
+                    },
+                    {
+                        type: 10, // text
+                        content: calls[i].detail
+                    },
+                    ...(calls.length > 1 ? [
+                        { type: 14 }, // divider
+                        {
+                            type: 1,
+                            components: [
+                                ...((i > 0) ? [{
+                                    type: 2, style: 2, // secondary button
+                                    emoji: { name: '◀️' },
+                                    custom_id: `d2:info?i=${i - 1}&ch=${msg.channel_id}&msg=${msg.id}`
+                                }] : []),
+                                ...((i + 1 < calls.length) ? [{
+                                    type: 2, style: 2, // secondary button
+                                    emoji: { name: '▶️' },
+                                    custom_id: `d2:info?i=${i + 1}&ch=${msg.channel_id}&msg=${msg.id}`
+                                }] : [])
+                            ]
+                        }
+                    ] : [])
+                ]
+            }]
+        }
+    });
+
 }

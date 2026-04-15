@@ -10,7 +10,7 @@ by JustApple
 // dependencies
 import ai from '@jnode/ai';
 import { request } from '@jnode/request';
-import { config, client, daiv2Tool, user, daiv2Cacher, instructions, getUser, tasks, getMessage, model, getUserMemory, getTime } from './startup.js';
+import { config, client, daiv2Tool, user, fileCacher, daiv2Cacher, instructions, getUser, tasks, getMessage, models, getUserMemory, getTime, getUserConfig } from './startup.js';
 import live from './../ai/live.js';
 import path from 'path';
 import fs from 'fs/promises';
@@ -54,34 +54,57 @@ export async function generate(message, author = message.author) {
         tasks.add(task);
 
         // build conversation
-        const { conversation, instruction, rootMessage } = await buildConversation(message, author);
+        const { conversation: conv, instruction, rootMessage, model } = await buildConversation(message, author);
+
+        // load user config
+        const userConfig = await getUserConfig(author.id);
 
         // build functions
         const functions = [toolkits.default];
+        if (config.users.dev.has(author.id)) functions.push(toolkits.dev);
+        if (userConfig?.toolkit) { // user remote toolkit
+
+        }
+        config.ai.userToolkits.map(kit => functions.push(toolkits[kit]));
 
         // build agent
-        const agent = new ai.AIAgent(model, {
+        const agent = new ai.AIAgent(models[model], {
             instructions: instruction,
             functions: functions
         });
+
+        // build conversation
+        const conversation = new ai.AIConversation(agent, conv);
 
         // build context
         const ctx = {
             rootMessage: rootMessage,
             conversation: conversation,
             author: author,
-            agent: agent
+            agent: agent,
+            price: 0n,
+            _context: {
+                rootMessage: rootMessage,
+                conversation: conversation,
+                author: author,
+                agent: agent,
+            },
+            _service: userConfig?.service,
+            _model: userConfig?.model,
+            _auth: userConfig?.auth
         };
 
         // start typing
         client.request('POST', `/channels/${message.channel_id}/typing`, {});
 
         // log
-        console.log(`\x1b[90mGenerate / \x1b[34m${author.username}\x1b[90m (${author.id})\x1b[0m activates an response with ${conversation.length} messages.`);
+        console.log(`\x1b[90mGenerate / \x1b[34m${author.username}\x1b[90m (${author.id})\x1b[0m activates an response with ${conv.length} messages.`);
 
         // generate
-        await messageStreamInteract(await agent.streamInteract(conversation, ctx, {}), ctx);
+        await messageStreamInteract(await conversation.streamInteract([], ctx, {}), ctx);
 
+        // show price
+        console.log(ctx.price)
     } catch (err) {
         console.error(err)
         console.error(await err.res.json())
@@ -99,6 +122,7 @@ export async function buildConversation(message, author) {
 
     // loop for collecting messages
     let instruction = '';
+    let model;
     while (ref) {
         let msg = ref;
         ref = null;
@@ -149,7 +173,7 @@ export async function buildConversation(message, author) {
                     // the data exists
                     if (data) {
                         if (data.current) conversation.unshift(data.current); // current (commonly function call)
-                        if (data.pervious) conversation.unshift(data.pervious); // pervious (commonly function response)
+                        if (data.previous) conversation.unshift(data.previous); // previous (commonly function response)
                         if (data.ref) ref = await getMessage(message.channel_id, data.ref); // reference
 
                         continue;
@@ -169,14 +193,26 @@ export async function buildConversation(message, author) {
 
             // attachments
             for (let i of (msg.attachments ?? [])) {
-                systemMessage += `    + [${i.filename}](${i.url})${i.width && i.height ? `: ${i.width}*${i.height}` : ''}\n`;
                 if (i.content_type) {
-                    aiMsg.components.push({
-                        type: 'file',
-                        mediaType: i.content_type,
-                        uri: i.url
-                    });
+                    if (i.filename === 'message.txt' || i.filename === 'message.md') {
+                        const data = await fileCacher.get(`${msg.channel_id}/${msg.id}/${i.filename}`, async () => {
+                            return (await request('GET', i.url)).text();
+                        });
+
+                        aiMsg.components.push({
+                            type: 'text',
+                            content: data
+                        });
+                        continue;
+                    } else {
+                        aiMsg.components.push({
+                            type: 'file',
+                            mediaType: i.content_type,
+                            uri: i.url
+                        });
+                    }
                 }
+                systemMessage += `    + [${i.filename}](${i.url})${i.width && i.height ? `: ${i.width}*${i.height}` : ''}\n`;
             }
 
             // unshift system message
@@ -242,6 +278,8 @@ export async function buildConversation(message, author) {
         }
     }
 
+    model = model ?? 'default';
+
     // return
-    return { conversation, instruction, rootMessage };
+    return { conversation, instruction, rootMessage, model };
 }

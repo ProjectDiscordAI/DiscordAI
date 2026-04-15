@@ -15,9 +15,10 @@ import ai_claude from '@jnode/ai/claude';
 const { OAIChatService } = ai_oai;
 const { GeminiService } = ai_gemini;
 const { ClaudeService } = ai_claude;
+import { unknownFunction } from './../core/utils/ai.js';
 
-export const openAI = new OAIChatService();
-export const gemini = new GeminiService();
-export const claude = new ClaudeService();
-export const pollinations = new OAIChatService({ baseUrl: 'https://gen.pollinations.ai/v1' });
-export const github = new OAIChatService({ baseUrl: 'https://models.github.ai/inference' });
+export const openAI = new OAIChatService({ unknownFunction: unknownFunction });
+export const gemini = new GeminiService({ unknownFunction: unknownFunction });
+export const claude = new ClaudeService({ unknownFunction: unknownFunction });
+export const pollinations = new OAIChatService({ baseUrl: 'https://gen.pollinations.ai/v1', unknownFunction: unknownFunction });
+export const github = new OAIChatService({ baseUrl: 'https://models.github.ai/inference', unknownFunction: unknownFunction });

@@ -8,7 +8,7 @@ by JustApple
 */
 
 // load config and bot info
-import { config, user, tasks } from './startup.js';
+import { config, user, tasks, gateway } from './startup.js';
 
 // discord ai v2 button custom id format
 // 'd2:<name>?<key>=<value>&<key>=<value>...#<target_user>' (uri format)
@@ -218,7 +218,7 @@ export function devDashboard(d, user) {
                 },
                 {
                     type: 10, // text
-                    content: `\`\`\`\nWorking tasks: ${tasks.size}\n\`\`\``
+                    content: `\`\`\`\nWorking tasks: ${tasks.size}\nPing: ${gateway.ping}\`\`\``
                 },
                 { type: 14 }, // divider
                 {
@@ -270,8 +270,9 @@ export function regeneratingButton() {
     };
 }
 
-export function functionInfo(calls, responses) {
+export function functionInfo(calls, responses, autoRun) {
     return (calls.length > 0 || responses.length > 0) ?
-        (responses.length > 0 ? `\`${responses.length}\` calls completed.\n` : '') + (calls.length > 0 ? `**>** ${calls.map(c => c.info ?? 'UNKNOWN').join(', ')}` : '') :
-        'Completed.';
+        (responses.length > 0 ? `Completed \`${responses.length}\` call(s).\n` : '') +
+        (calls.length > 0 ? `${autoRun ? 'Auto run' : 'Run'}: ${calls.map(c => c.info ?? 'UNKNOWN').join(', ')}.` : '') :
+        'Respond completed.';
 }

@@ -96,6 +96,7 @@ try {
         hour12: true,
         weekday: 'short'
     };
+    config.core.maxAutoRun = config.core.maxAutoRun ?? 3;
     console.log(`\x1b[90m  - \x1b[0mCore config loaded.\x1b[0m`);
 
     // encryption configs
@@ -113,9 +114,10 @@ try {
     // credit configs
     loadingConfig = 'credit config';
     config.credit = config.credit ?? {};
-    config.credit.daily = config.credit.daily ?? 120_000000000n;
-    config.credit.hourly = config.credit.daily / 24n;
-    config.credit.regist_paid = config.credit.regist_paid ?? 0n;
+    config.credit.daily = BigInt(config.credit.daily ?? 120_000000000n);
+    config.credit.hourly = BigInt(config.credit.daily) / 24n;
+    config.credit.regist_paid = BigInt(config.credit.regist_paid ?? 0n);
+    config.credit.basic = BigInt(config.credit.basic ?? 5_000000000n);
     console.log(`\x1b[90m  - \x1b[0mCredit config loaded.\x1b[0m`);
 
     // policy config
@@ -133,6 +135,7 @@ try {
     config.cache.daiv2CacherOptions = config.cache.daiv2CacherOptions;
     config.cache.memoryCacherOptions = config.cache.memoryCacherOptions;
     config.cache.configCacherOptions = config.cache.configCacherOptions;
+    config.cache.fileCacherOptions = config.cache.fileCacherOptions;
     console.log(`\x1b[90m  - \x1b[0mPolicy config loaded.\x1b[0m`);
 
     // users config
@@ -147,18 +150,27 @@ try {
     loadingConfig = 'UI config';
     config.ui = config.ui ?? {};
     config.ui.generateErrorTitle = config.ui.generateErrorTitle ?? 'Error';
-    config.ui.generateErrorMessage = config.ui.generateErrorMessage ?? 'Something went wrong while generating the response, plase `forward` this message to the developer if this keeps happening.'
+    config.ui.generateErrorMessage = config.ui.generateErrorMessage ?? 'Something went wrong while generating the response, plase `forward` this message to the developer if this keeps happening.';
+    config.ui.runLabel = config.ui.runLabel ?? 'Run';
+    config.ui.runEmoji = config.ui.runEmoji ?? { name: '⚡' };
+    config.ui.infoLabel = config.ui.infoLabel ?? 'Info';
+    config.ui.infoEmoji = config.ui.infoEmoji ?? { name: '📃' };
+    config.ui.ignoreLabel = config.ui.ignoreLabel ?? 'Ignore';
+    config.ui.ignoreEmoji = config.ui.ignoreEmoji;
+    config.ui.callInfoTitle = config.ui.callInfoTitle ?? '## Function Info'
     console.log(`\x1b[90m  - \x1b[0mUI config loaded.\x1b[0m`);
 
     // ai config
     loadingConfig = 'AI config';
     config.ai = config.ai ?? {};
-    config.ai.models = config.ai.models ?? [];
+    config.ai.models = config.ai.models ?? {};
+    config.ai.models.default = config.ai.models.default ?? [];
     config.ai.customModel = config.ai.customModel ?? true;
     config.ai.customModelOptions = config.ai.customModelOptions ?? true;
     config.ai.memoryTitle = config.ai.memoryTitle ?? '# Memories';
     config.ai.hasNote = config.ai.hasNote ?? 'with note, ';
     config.ai.hasConversation = config.ai.hasConversation ?? 'with conversation, ';
+    config.ai.userToolkits = config.ai.userToolkits ?? ['user']
     console.log(`\x1b[90m  - \x1b[0mAI config loaded.\x1b[0m`);
 
     // discord bot configs
@@ -357,28 +369,35 @@ console.log(`\x1b[90m  - \x1b[32mComplete.\x1b[0m`);
 
 // load model
 console.log(`\x1b[90m> \x1b[0mLoading models...`);
-let models = [];
-for (let i of config.ai.models) {
-    // select service
-    const service = services[i.service];
-    if (!service) {
-        console.error(`\x1b[90m  - \x1b[31mUnknown service: ${i.service}, add them in 'app/ai/services.js'.\x1b[0m`);
-        continue;
+export const models = {};
+for (let i in config.ai.models) {
+    const fallbackModels = [];
+    for (let j of config.ai.models[i]) {
+        // select service
+        const service = services[j.service];
+        if (!service) {
+            console.error(`\x1b[90m  - \x1b[31mUnknown service: ${j.service}, add them in 'app/ai/services.js'.\x1b[0m`);
+            continue;
+        }
+
+        // create model and proxy model
+        fallbackModels.push(new DAIProxyModel(service.model(j.name, {
+            auth: j.auth ? j.auth.startsWith('env:') ? config.env[j.auth.slice(4)] : j.auth : undefined, // load from env
+            ...j.options
+        }), { basePrice: j.basePrice, inputPrice: j.inputPrice ?? 1, outputPrice: j.outputPrice }));
     }
 
-    // create model and proxy model
-    models.push(new DAIProxyModel(service.model(i.name, {
-        auth: i.auth ? i.auth.startsWith('env:') ? config.env[i.auth.slice(4)] : i.auth : undefined, // load from env
-        ...i.options
-    })));
+    if (config.ai.customModel) fallbackModels.unshift(new DAIUserCustomModel(services, config.ai.customModelOptions));
+
+    if (fallbackModels.length < 1) { // no model
+        console.error(`\x1b[90m  - \x1b[31mNo avaliable models to use for "${i}".\x1b[0m`);
+        process.exit(1);
+    }
+
+    models[i] = new DAIFallbackModel(fallbackModels);
+    console.log(`\x1b[90m  - \x1b[0mLoaded ${fallbackModels.length} models for "${i}".\x1b[0m`);
 }
-if (config.ai.customModel) models.unshift(new DAIUserCustomModel(services, config.ai.customModelOptions));
-if (models.length < 1) { // no model
-    console.error(`\x1b[90m  - \x1b[31mNo avaliable models to use.\x1b[0m`);
-    process.exit(1);
-}
-export const model = new DAIFallbackModel(models);
-console.log(`\x1b[90m  - \x1b[32mLoaded ${models.length} models.\x1b[0m`);
+console.log(`\x1b[90m  - \x1b[32mComplete.\x1b[0m`);
 
 // create cache managers
 console.log(`\x1b[90m> \x1b[0mCreating cache managers...`);
@@ -386,6 +405,7 @@ export const messageCacher = new CacheManager(null, config.cache.messageCacherOp
 export const daiv2Cacher = new CacheManager(null, config.cache.daiv2CacherOptions);
 export const configCacher = new CacheManager(null, config.cache.configCacherOptions);
 export const memoryCacher = new CacheManager(null, config.cache.memoryCacherOptions);
+export const fileCacher = new CacheManager(null, config.cache.fileCacherOptions);
 console.log(`\x1b[90m  - \x1b[32mComplete.\x1b[0m`);
 
 // get message

@@ -10,7 +10,7 @@ by JustApple
 // dependencies
 import ai from '@jnode/ai';
 
-export default new ai.AIFunction('log', 'Log something to console.', {
+const f = new ai.AIFunction('log', '[DEV] Log something to console.', {
     type: 'object',
     properties: {
         text: {
@@ -22,3 +22,13 @@ export default new ai.AIFunction('log', 'Log something to console.', {
     console.log(params.text);
     return {};
 });
+
+f.info = (args, ctx) => {
+    return `log to console`;
+};
+
+f.detail = (args, ctx) => {
+    return '```\n' + args.text + '\n```';
+};
+
+export default f;
