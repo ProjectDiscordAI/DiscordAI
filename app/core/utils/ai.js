@@ -67,7 +67,8 @@ export class DAIProxyModel {
 
     async interact(agent, conversation, context = {}, options = {}) {
         const res = await this.model.interact(agent, conversation, context._context, options);
-        res.meta.price = this.basePrice + BigInt(res.meta.inputTotal ?? 0) * this.inputPrice + BigInt(res.meta.outputTotal ?? 0) * this.outputPrice;
+        res.meta ??= {};
+        res.meta.price = this.basePrice + BigInt(res.meta?.inputTotal ?? 0) * this.inputPrice + BigInt(res.meta?.outputTotal ?? 0) * this.outputPrice;
         return res;
     }
 
@@ -75,7 +76,9 @@ export class DAIProxyModel {
         const stream = this.model.streamInteract(agent, conversation, context._context, options);
         for await (let i of stream) {
             if (i.type === 'end') {
-                i.conversation.meta.price = this.basePrice + BigInt(i.conversation.meta.inputTotal ?? 0) * this.inputPrice + BigInt(i.conversation.meta.outputTotal ?? 0) * this.outputPrice;
+                i.conversation.meta ??= {};
+                console.log(i.conversation.meta)
+                i.conversation.meta.price = this.basePrice + BigInt(i.conversation.meta?.inputTotal ?? 0) * this.inputPrice + BigInt(i.conversation.meta?.outputTotal ?? 0) * this.outputPrice;
             }
             yield i;
         }

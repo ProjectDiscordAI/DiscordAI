@@ -196,16 +196,25 @@ export function dashboard(d, user) {
         components: [{
             type: 17,
             id: 1_006, // ids over 1000 is discordai's special message flag
-            components: [{
-                type: 10, // text
-                content: `# Dashboard`
-            }]
+            components: [
+                {
+                    type: 10, // text
+                    content: `# Dashboard`
+                },
+                {
+                    type: 10, // text
+                    content: `**Free credits**: \`${Number(user.free_credits) / 1000000000}\` / \`${Number(config.credit.daily) / 1000000000}\`\n` +
+                        `**Paid credits**: \`${Number(user.paid_credits) / 1000000000}\`\n` +
+                        `**Next free credit refill**: <t:${Math.floor(Math.ceil(Date.now() / 3600000) * 3600)}:S> (\`${Number(config.credit.hourly) / 1000000000}\`/hr)`
+                },
+            ]
         }]
     };
 }
 
 // dev dashboard
 export function devDashboard(d, user) {
+    const author = d.user ?? d.member.user;
     return {
         flags: 1 << 15 | 1 << 6,
         components: [{
@@ -218,7 +227,12 @@ export function devDashboard(d, user) {
                 },
                 {
                     type: 10, // text
-                    content: `\`\`\`\nWorking tasks: ${tasks.size}\nPing: ${gateway.ping}\`\`\``
+                    content: '```\n' +
+                        `Working tasks: ${tasks.size}\n` +
+                        `Ping: ${gateway.ping}\n` +
+                        `Free credits: ${Number(user.free_credits) / 1000000000}\n` +
+                        `Paid credits: ${Number(user.paid_credits) / 1000000000}\n` +
+                        '```'
                 },
                 { type: 14 }, // divider
                 {
@@ -226,7 +240,7 @@ export function devDashboard(d, user) {
                     components: [
                         {
                             type: 2, style: 2, // secondary button
-                            label: 'Delete account', custom_id: `d2:devDelAcc#${user.id}`
+                            label: 'Get user', custom_id: `d2:devGetUser#${author.id}`
                         }
                     ]
                 },
@@ -275,4 +289,23 @@ export function functionInfo(calls, responses, autoRun) {
         (responses.length > 0 ? `Completed \`${responses.length}\` call(s).\n` : '') +
         (calls.length > 0 ? `${autoRun ? 'Auto run' : 'Run'}: ${calls.map(c => c.info ?? 'UNKNOWN').join(', ')}.` : '') :
         'Respond completed.';
+}
+
+export function notEnoughCredits(message, author, user) {
+    return {
+        message_reference: (message?.author?.id === author.id) ? { message_id: message?.id } : undefined,
+        flags: 1 << 15 | 1 << 6,
+        components: [{
+            type: 17,
+            id: 1_008, // ids over 1000 is discordai's special message flag
+            accent_color: 0xFFFF00,
+            components: [
+                {
+                    type: 10,
+                    content: `# Not Enough Credits\n\n` +
+                        `<@${author.id}> You'll need at least \`${Number(config.credit.basic) / 1000000000}\` credits to generate a response. Check your credits with \`/${config.bot.commands.dashboard}\`.`
+                }
+            ]
+        }]
+    };
 }

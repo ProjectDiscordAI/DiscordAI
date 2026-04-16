@@ -17,7 +17,7 @@
                     "auth": "env:gemini_key",
                     "name": "gemma-4-31b-it",
                     "options": {
-                        "thinkingLevel": "none"
+                        "thinkingLevel": "high"
                     }
                 }
             ]

@@ -186,3 +186,88 @@ export async function info(d, params) {
     });
 
 }
+
+export async function devGetUser(d, params) {
+    const author = d.user ?? d.member.user;
+
+    await client.request('POST', `/interactions/${d.id}/${d.token}/callback`, {
+        type: 9, // modal
+        data: {
+            custom_id: 'd2:devGetUser',
+            title: 'Get User (Dev)',
+            components: [
+                {
+                    type: 18, // label
+                    label: 'Select a user.',
+                    description: 'Use this field or use "User ID".',
+                    component: {
+                        type: 5, //user select
+                        custom_id: 'targetUser',
+                        required: false
+                    }
+                },
+                {
+                    type: 18, // label
+                    label: 'Select a user by ID.',
+                    component: {
+                        type: 4,
+                        style: 1,
+                        min_length: 1,
+                        max_length: 20,
+                        custom_id: 'targetUserId',
+                        required: false
+                    }
+                }
+            ]
+        }
+    });
+}
+
+export async function devSetCredit(d, params) {
+    const author = d.user ?? d.member.user;
+    if (!config.users.dev.has(author.id)) return;
+
+    const user = await getUser(params.get('user'));
+
+    await client.request('POST', `/interactions/${d.id}/${d.token}/callback`, {
+        type: 9, // modal
+        data: {
+            custom_id: `d2:devSetCredit?user=${params.get('user')}`,
+            title: 'Set credits (Dev)',
+            components: [
+                {
+                    type: 10,
+                    content: `> Updating <@${params.get('user')}> (\`${params.get('user')}\`)'s credits.`
+                },
+                {
+                    type: 18, // label
+                    label: 'Free credits',
+                    description: 'Nano-credits. Leave this field empty to keep the original value.',
+                    component: {
+                        type: 4, // text input
+                        style: 1,
+                        custom_id: 'freeCredits',
+                        min_length: 1,
+                        max_length: 20,
+                        required: false,
+                        placeholder: user.free_credits.toString()
+                    }
+                },
+                {
+                    type: 18, // label
+                    label: 'Paid credits',
+                    description: 'Nano-credits. Leave this field empty to keep the original value.',
+                    component: {
+                        type: 4, // text input
+                        style: 1,
+                        custom_id: 'paidCredits',
+                        min_length: 1,
+                        max_length: 20,
+                        required: false,
+                        placeholder: user.paid_credits.toString()
+                    }
+                }
+            ]
+        }
+    }).catch(async e => console.log(e));
+}

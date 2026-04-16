@@ -10,7 +10,7 @@ by JustApple
 // dependencies
 import ai from '@jnode/ai';
 import { request } from '@jnode/request';
-import { config, client, daiv2Tool, user, fileCacher, daiv2Cacher, instructions, getUser, tasks, getMessage, models, getUserMemory, getTime, getUserConfig } from './startup.js';
+import { config, client, daiv2Tool, user, userDB, fileCacher, daiv2Cacher, instructions, getUser, tasks, getMessage, models, getUserMemory, getTime, getUserConfig } from './startup.js';
 import live from './../ai/live.js';
 import path from 'path';
 import fs from 'fs/promises';
@@ -48,6 +48,19 @@ export async function generate(message, author = message.author) {
         return;
     }
 
+    // check user credits
+    if (user.free_credits + user.paid_credits < config.credit.basic) {
+        client.request('POST', `/channels/${message.channel_id}/messages`, ui.notEnoughCredits(message, author, user));
+        return;
+    }
+
+    // pre-auth
+    const freeCreditsTaken = (user.free_credits >= config.credit.basic) ? config.credit.basic : user.free_credits;
+    const paidCreditsTaken = (user.free_credits >= config.credit.basic) ? 0n : config.credit.basic - user.free_credits;
+    await userDB.setLineByField('id', user.id, { free_credits: user.free_credits - freeCreditsTaken, paid_credits: user.paid_credits - paidCreditsTaken });
+
+    let ctx = {};
+
     const task = Symbol('generateResponseTask');
     try {
         // task monitor
@@ -77,7 +90,7 @@ export async function generate(message, author = message.author) {
         const conversation = new ai.AIConversation(agent, conv);
 
         // build context
-        const ctx = {
+        ctx = {
             rootMessage: rootMessage,
             conversation: conversation,
             author: author,
@@ -104,13 +117,37 @@ export async function generate(message, author = message.author) {
         await messageStreamInteract(await conversation.streamInteract([], ctx, {}), ctx);
 
         // show price
-        console.log(ctx.price)
+        client.request('POST', `/channels/${message.channel_id}/messages`, {
+            content: `-# 💸 \`${Number(ctx.price) / 1000000000}\``
+        });
     } catch (err) {
         console.error(err)
         console.error(await err.res.json())
     } finally {
         // task finished
         tasks.delete(task);
+
+        // capture
+        userDB._doTask(async () => {
+            const { fields } = await userDB.readLineByField('id', user.id, true);
+            const additionalFee = ctx.price - config.credit.basic;
+            if (additionalFee === 0n) return;
+            else if (additionalFee > 0n) {
+                let additionalFreeTaken = (fields.free_credits >= additionalFee) ? additionalFee : fields.free_credits;
+                let additionalPaidTaken = (fields.free_credits >= additionalFee) ? 0n : additionalFee - fields.free_credits;
+                if (additionalPaidTaken > fields.paid_credits) {
+                    additionalFreeTaken += additionalPaidTaken - fields.paid_credits;
+                    additionalPaidTaken = fields.paid_credits;
+                }
+                await userDB.setLineByField('id', user.id, { free_credits: fields.free_credits - additionalFreeTaken, paid_credits: fields.paid_credits - additionalPaidTaken }, true);
+                return;
+            } else if (additionalFee < 0n) {
+                const additionalPaidReturn = (-additionalFee >= paidCreditsTaken) ? paidCreditsTaken : -additionalFee;
+                const additionalFreeReturn = (-additionalFee >= paidCreditsTaken) ? -additionalFee - paidCreditsTaken : 0n;
+                await userDB.setLineByField('id', user.id, { free_credits: fields.free_credits + additionalFreeReturn, paid_credits: fields.paid_credits + additionalPaidReturn }, true);
+                return;
+            }
+        });
     }
 }
 

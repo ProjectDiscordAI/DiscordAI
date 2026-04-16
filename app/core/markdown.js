@@ -263,7 +263,6 @@ export async function messageStreamInteract(interactStream, ctx) {
             } else if (i.type === 'end') {
                 // calculate price
                 ctx.price += i.conversation?.meta?.price || 0n;
-                console.log(ctx.price)
 
                 // send overflowed messages
                 if (ctx.inCodeblock) {
@@ -418,6 +417,6 @@ export async function messageStreamInteract(interactStream, ctx) {
             }]
         }, [new Attachment('err.daiv2', 'application/x-daiv2', daiv2Tool.encrypt({ msg: err.message, code: err.code, cause: err.cause, stack: err.stack, conversation }))]);
     } finally {
-        return;
+
     }
 }

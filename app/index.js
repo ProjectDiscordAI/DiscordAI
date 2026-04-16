@@ -107,6 +107,32 @@ gateway.on('INTERACTION_CREATE', async (d) => {
                 console.warn(`\x1b[90mInteraction /\x1b[0m Failed to send "interaction error" message of \x1b[34m${url.pathname}\x1b[0m.`,);
             }
         }
+    } else if (d.type === 5) {
+        if (!d.data.custom_id.startsWith('d2:')) return;
+
+        // parse custom id
+        let url;
+        try { url = new URL(d.data.custom_id) } catch { return; } // ignore wrong format button id
+
+        // check if interaction exists
+        if (!interactions.modal[url.pathname]) {
+            console.warn(`\x1b[90mInteraction /\x1b[0m Unknown 'd2:' interaction: \x1b[34m${url.pathname}\x1b[0m.`);
+            return;
+        }
+
+        // run
+        try {
+            await interactions.modal[url.pathname](d, url.searchParams);
+        } catch (err) {
+            console.error(`\x1b[90mInteraction /\x1b[0m Error while handling interaction: \x1b[34m${url.pathname}\x1b[0m.\n`, err);
+            try {
+                await client.request('POST', `/interactions/${d.id}/${d.token}/callback`, {
+                    type: 4, data: ui.interactionError(d, url, err)
+                });
+            } catch {
+                console.warn(`\x1b[90mInteraction /\x1b[0m Failed to send "interaction error" message of \x1b[34m${url.pathname}\x1b[0m.`,);
+            }
+        }
     }
 });
 
