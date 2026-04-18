@@ -12,7 +12,7 @@ import jn_ai from '@jnode/ai';
 import jn_dc from '@jnode/discord';
 const { AIConversation } = jn_ai;
 const { Attachment } = jn_dc;
-import { config, client, messageCacher, daiv2Tool } from './startup.js';
+import { config, client, messageCacher, daiv2Tool, daiv2Cacher } from './startup.js';
 import * as ui from './ui.js';
 
 // constants
@@ -320,6 +320,13 @@ export async function messageStreamInteract(interactStream, ctx) {
                     return messageStreamInteract(await i.conversation.streamInteract([], ctx), ctx);
                 }
 
+                const daiv2 = {
+                    previous: (responses.length > 0) ? i.conversation.conversation[i.conversation.conversation.length - 2] : undefined,
+                    current: i.conversation.last,
+                    ref: message.id,
+                    calls: calls
+                };
+
                 ctx.lastMsg = await sendMessage(ctx.lastMsg.channel_id, {
                     allowed_mentions: { parse: [], replied_user: message.author.id === author.id },
                     message_reference: (ctx.lastMsg === message) ? { message_id: message.id } : undefined,
@@ -354,14 +361,12 @@ export async function messageStreamInteract(interactStream, ctx) {
                 }, (calls.length > 0 || responses.length > 0 || ctx.count > 1) ? [
                     new Attachment(
                         'msg.daiv2', 'application/x-daiv2',
-                        daiv2Tool.encrypt({
-                            previous: (responses.length > 0) ? i.conversation.conversation[i.conversation.conversation.length - 2] : undefined,
-                            current: i.conversation.last,
-                            ref: message.id,
-                            calls: calls
-                        })
+                        daiv2Tool.encrypt(daiv2)
                     )
                 ] : undefined);
+
+                // save daiv2 to cache
+                daiv2Cacher.set(`${ctx.lastMsg.channel_id}/${ctx.lastMsg.id}`, daiv2);
 
                 // auto run
                 if (calls.length > 0 && autoRun && ctx.autoRan < config.core.maxAutoRun) {

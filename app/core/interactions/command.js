@@ -91,5 +91,23 @@ export async function report(d) {
                 flags: 1 << 6
             }
         }, attachments);
+    } else {
+
     }
+}
+
+export async function use(d) {
+    await client.request('POST', `/interactions/${d.id}/${d.token}/callback`, {
+        type: 4, // channel message
+        data: ui.useModel(null, Number(d.data.options[0].value))
+    });
+}
+
+export async function switcher(d) {
+    await client.request('POST', `/interactions/${d.id}/${d.token}/callback`, {
+        type: 9, // modal
+        data: ui.switchModal(d)
+    });
+
+    // await client.request('POST', `/channels/${d.message.channel_id}/messages`, ui.useModel(d.message, Number(d.data.options[0].value)));
 }

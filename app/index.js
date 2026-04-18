@@ -62,6 +62,8 @@ gateway.on('INTERACTION_CREATE', async (d) => {
         if (command === config.bot.commands.dashboard) command = 'dashboard';
         if (command === config.bot.commands.generate) command = 'generate';
         if (command === config.bot.commands.report) command = 'report';
+        if (command === config.bot.commands.use) command = 'use';
+        if (command === config.bot.commands.switch) command = 'switcher';
 
         // check if command exists
         if (!interactions.command[command]) return;

@@ -17,6 +17,13 @@ import fs from 'fs/promises';
 import * as ui from './ui.js';
 import { messageStreamInteract } from './markdown.js';
 
+// constants
+const MODEL_BINDING = {
+    1100: 'default',
+    1101: 'fast',
+    1102: 'pro'
+};
+
 // load toolkits
 const toolkits = {};
 const dir = await fs.readdir('./toolkits/', { withFileTypes: true });
@@ -117,7 +124,7 @@ export async function generate(message, author = message.author) {
         await messageStreamInteract(await conversation.streamInteract([], ctx, {}), ctx);
 
         // show price
-        client.request('POST', `/channels/${message.channel_id}/messages`, {
+        if (config.users.dev.has(author.id)) client.request('POST', `/channels/${message.channel_id}/messages`, {
             content: `-# 💸 \`${Number(ctx.price) / 1000000000}\``
         });
     } catch (err) {
@@ -183,6 +190,9 @@ export async function buildConversation(message, author) {
             if (msg.flags & (1 << 15)) {
                 if (msg.components?.[0]?.id === 1001) { // setup message
                     instruction = instructions.setup;
+                } else if (msg.components?.[0]?.id >= 1100 && msg.components?.[0]?.id < 1200) { // model config
+                    model ??= MODEL_BINDING[msg.components?.[0]?.id];
+                    continue;
                 }
                 break;
             }
@@ -315,7 +325,7 @@ export async function buildConversation(message, author) {
         }
     }
 
-    model = model ?? 'default';
+    model ??= 'default';
 
     // return
     return { conversation, instruction, rootMessage, model };

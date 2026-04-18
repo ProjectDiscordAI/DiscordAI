@@ -22,3 +22,6 @@ export const gemini = new GeminiService({ unknownFunction: unknownFunction });
 export const claude = new ClaudeService({ unknownFunction: unknownFunction });
 export const pollinations = new OAIChatService({ baseUrl: 'https://gen.pollinations.ai/v1', unknownFunction: unknownFunction });
 export const github = new OAIChatService({ baseUrl: 'https://models.github.ai/inference', unknownFunction: unknownFunction });
+export const groq = new OAIChatService({ baseUrl: 'https://api.groq.com/openai/v1', unknownFunction: unknownFunction });
+export const openRouter = new OAIChatService({ baseUrl: 'https://openrouter.ai/api/v1', unknownFunction: unknownFunction });
+export const nvidia = new OAIChatService({ baseUrl: 'https://integrate.api.nvidia.com/v1', unknownFunction: unknownFunction });

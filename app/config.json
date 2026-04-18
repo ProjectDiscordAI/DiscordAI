@@ -18,7 +18,93 @@
                     "name": "gemma-4-31b-it",
                     "options": {
                         "thinkingLevel": "high"
-                    }
+                    },
+                    "inputPrice": 18000,
+                    "outputPrice": 48000
+                },
+                {
+                    "service": "gemini",
+                    "auth": "env:gemini_key",
+                    "name": "gemma-4-26b-a4b-it",
+                    "options": {
+                        "thinkingLevel": "high"
+                    },
+                    "inputPrice": 18000,
+                    "outputPrice": 48000
+                }
+            ],
+            "fast": [
+                {
+                    "service": "gemini",
+                    "auth": "env:gemini_key",
+                    "name": "gemini-3-flash-lite-preview",
+                    "options": {
+                        "thinkingLevel": "high"
+                    },
+                    "inputPrice": 30000,
+                    "outputPrice": 180000
+                },
+                {
+                    "service": "gemini",
+                    "auth": "env:gemini_key",
+                    "name": "gemma-4-31b-it",
+                    "options": {
+                        "thinkingLevel": "none"
+                    },
+                    "inputPrice": 18000,
+                    "outputPrice": 48000
+                },
+                {
+                    "service": "gemini",
+                    "auth": "env:gemini_key",
+                    "name": "gemma-4-26b-a4b-it",
+                    "options": {
+                        "thinkingLevel": "none"
+                    },
+                    "inputPrice": 18000,
+                    "outputPrice": 48000
+                }
+            ],
+            "pro": [
+                {
+                    "service": "gemini",
+                    "auth": "env:gemini_key",
+                    "name": "gemini-3-flash-preview",
+                    "options": {
+                        "thinkingLevel": "high"
+                    },
+                    "inputPrice": 60000,
+                    "outputPrice": 360000
+                },
+                {
+                    "service": "nvidia",
+                    "auth": "env:nvidia_key",
+                    "name": "moonshotai/kimi-k2.5",
+                    "options": {
+                        "thinkingLevel": "high"
+                    },
+                    "inputPrice": 18000,
+                    "outputPrice": 48000
+                },
+                {
+                    "service": "gemini",
+                    "auth": "env:gemini_key",
+                    "name": "gemma-4-31b-it",
+                    "options": {
+                        "thinkingLevel": "high"
+                    },
+                    "inputPrice": 18000,
+                    "outputPrice": 48000
+                },
+                {
+                    "service": "gemini",
+                    "auth": "env:gemini_key",
+                    "name": "gemma-4-26b-a4b-it",
+                    "options": {
+                        "thinkingLevel": "high"
+                    },
+                    "inputPrice": 18000,
+                    "outputPrice": 48000
                 }
             ]
         }

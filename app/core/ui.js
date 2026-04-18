@@ -10,6 +10,13 @@ by JustApple
 // load config and bot info
 import { config, user, tasks, gateway } from './startup.js';
 
+// constants
+const MODEL_BINDING = {
+    0: 'Default',
+    1: 'Fast',
+    2: 'Pro'
+};
+
 // discord ai v2 button custom id format
 // 'd2:<name>?<key>=<value>&<key>=<value>...#<target_user>' (uri format)
 
@@ -219,7 +226,7 @@ export function devDashboard(d, user) {
         flags: 1 << 15 | 1 << 6,
         components: [{
             type: 17,
-            id: 1_006, // ids over 1000 is discordai's special message flag
+            id: 1_007, // ids over 1000 is discordai's special message flag
             components: [
                 {
                     type: 10, // text
@@ -255,7 +262,7 @@ export function generatingCommand() {
         flags: 1 << 15 | 1 << 6,
         components: [{
             type: 17,
-            id: 1_006, // ids over 1000 is discordai's special message flag
+            id: 1_008, // ids over 1000 is discordai's special message flag
             components: [
                 {
                     type: 10, // text
@@ -273,7 +280,7 @@ export function regeneratingButton() {
         embeds: [],
         components: [{
             type: 17,
-            id: 1_006, // ids over 1000 is discordai's special message flag
+            id: 1_009, // ids over 1000 is discordai's special message flag
             components: [
                 {
                     type: 10, // text
@@ -297,7 +304,7 @@ export function notEnoughCredits(message, author, user) {
         flags: 1 << 15 | 1 << 6,
         components: [{
             type: 17,
-            id: 1_008, // ids over 1000 is discordai's special message flag
+            id: 1_010, // ids over 1000 is discordai's special message flag
             accent_color: 0xFFFF00,
             components: [
                 {
@@ -307,5 +314,52 @@ export function notEnoughCredits(message, author, user) {
                 }
             ]
         }]
+    };
+}
+
+export function useModel(message, modelId = 0) {
+    return {
+        message_reference: message ? { message_id: message.id } : undefined,
+        allowed_mentions: { parse: [] },
+        flags: 1 << 15,
+        components: [{
+            type: 17,
+            id: 1_100 + modelId, // ids in 11xx is discordai's special model use message flag
+            accent_color: 0x0000FF,
+            components: [
+                {
+                    type: 10,
+                    content: `The following conversation will use the **${MODEL_BINDING[modelId] ?? 'Default'}** model.`
+                }
+            ]
+        }]
+    };
+}
+
+export function switchModal(d) {
+    const msg = d.data.resolved.messages[d.data.target_id];
+    return {
+        custom_id: `d2:switchModel?ch=${msg.channel_id}&msg=${msg.id}`,
+        title: 'Model Switcher',
+        components: [
+            {
+                type: 18, // label
+                label: 'Model',
+                description: 'The model you\'d like to use in the later conversation.',
+                component: {
+                    type: 3, // string select
+                    style: 1,
+                    custom_id: 'modelUsed',
+                    required: true,
+                    min_values: 1,
+                    max_values: 1,
+                    options: [
+                        { label: 'Default', value: '0', description: 'The default model. Use this option for your custom models.' },
+                        { label: 'Fast', value: '1', description: 'Response fast.' },
+                        { label: 'Pro', value: '2', description: 'Get better results.' }
+                    ]
+                }
+            },
+        ]
     };
 }

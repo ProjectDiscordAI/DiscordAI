@@ -9,7 +9,7 @@ by JustApple
 
 // dependencies
 import { config, client, getUser, userDB } from './../startup.js';
-
+import * as ui from './../ui.js';
 
 export async function devGetUser(d, params) {
     const author = d.user ?? d.member.user;
@@ -117,4 +117,12 @@ export async function devSetCredit(d, params) {
             }]
         }
     });
+}
+
+export async function switchModel(d, params) {
+    await client.request('POST', `/interactions/${d.id}/${d.token}/callback`, {
+        type: 6 // deferred update message
+    });
+
+    await client.request('POST', `/channels/${params.get('ch')}/messages`, ui.useModel({ channel_id: params.get('ch'), id: params.get('msg') }, Number(d.data.components[0].component.values[0])))
 }

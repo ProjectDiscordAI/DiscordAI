@@ -77,7 +77,6 @@ export class DAIProxyModel {
         for await (let i of stream) {
             if (i.type === 'end') {
                 i.conversation.meta ??= {};
-                console.log(i.conversation.meta)
                 i.conversation.meta.price = this.basePrice + BigInt(i.conversation.meta?.inputTotal ?? 0) * this.inputPrice + BigInt(i.conversation.meta?.outputTotal ?? 0) * this.outputPrice;
             }
             yield i;

@@ -37,7 +37,7 @@ const f = new ai.AIFunction('fetch', '[DEV] Make a HTTP request directly and ret
 }, async (args, ctx) => {
     if (!config.users.dev.has(ctx.author.id)) return { status: 'PERMISSION_DENIED' };
     try {
-        return { status: 'COMPLETED', result: request(args.method, args.url, args.body, args.headers) };
+        return { status: 'COMPLETED', result: await (await request(args.method, args.url, args.body, args.headers)).text() };
     } catch (err) {
         return { status: 'ERROR', message: err.message };
     }

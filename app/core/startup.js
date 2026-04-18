@@ -165,6 +165,8 @@ try {
     config.ai = config.ai ?? {};
     config.ai.models = config.ai.models ?? {};
     config.ai.models.default = config.ai.models.default ?? [];
+    config.ai.models.fast = config.ai.models.fast ?? config.ai.models.default;
+    config.ai.models.pro = config.ai.models.pro ?? config.ai.models.default;
     config.ai.customModel = config.ai.customModel ?? true;
     config.ai.customModelOptions = config.ai.customModelOptions ?? true;
     config.ai.memoryTitle = config.ai.memoryTitle ?? '# Memories';
@@ -183,6 +185,8 @@ try {
     config.bot.commands.dashboard = config.bot.commands.dashboard ?? 'dashboard';
     config.bot.commands.generate = config.bot.commands.generate ?? 'Generate';
     config.bot.commands.report = config.bot.commands.report ?? 'Report';
+    config.bot.commands.use = config.bot.commands.use ?? 'use';
+    config.bot.commands.switch = config.bot.commands.switch ?? 'Switch Model';
     console.log(`\x1b[90m  - \x1b[0mBot config loaded.\x1b[0m`);
 } catch (err) {
     console.error(`\x1b[90m  - \x1b[31mError while loading ${loadingConfig}: ${err.message}\x1b[0m`);
@@ -387,7 +391,7 @@ for (let i in config.ai.models) {
         }), { basePrice: j.basePrice, inputPrice: j.inputPrice ?? 1, outputPrice: j.outputPrice }));
     }
 
-    if (config.ai.customModel) fallbackModels.unshift(new DAIUserCustomModel(services, config.ai.customModelOptions));
+    if (config.ai.customModel && i === 'default') fallbackModels.unshift(new DAIUserCustomModel(services, config.ai.customModelOptions));
 
     if (fallbackModels.length < 1) { // no model
         console.error(`\x1b[90m  - \x1b[31mNo avaliable models to use for "${i}".\x1b[0m`);
@@ -504,6 +508,48 @@ try {
             console.log(`\x1b[90m  - \x1b[0mCreated command: \x1b[34m${config.bot.commands.report}\x1b[0m.`);
         } catch (err) {
             console.error(`\x1b[90m  - \x1b[31mFailed to generate command "${config.bot.commands.report}": ${err.message}`);
+        }
+    }
+
+    // check switch command
+    if (!commands.find(c => c.name === config.bot.commands.switch)) {
+        // regist one
+        try {
+            await client.request('POST', `/applications/${user.id}/commands`, {
+                name: config.bot.commands.switch,
+                type: 3
+            });
+            console.log(`\x1b[90m  - \x1b[0mCreated command: \x1b[34m${config.bot.commands.switch}\x1b[0m.`);
+        } catch (err) {
+            console.error(`\x1b[90m  - \x1b[31mFailed to generate command "${config.bot.commands.switch}": ${err.message}`);
+        }
+    }
+
+    // check use command
+    if (!commands.find(c => c.name === config.bot.commands.use)) {
+        // regist one
+        try {
+            await client.request('POST', `/applications/${user.id}/commands`, {
+                name: config.bot.commands.use,
+                type: 1,
+                description: 'Start a conversation using specific model.',
+                options: [
+                    {
+                        name: 'model',
+                        description: 'The model to use in the new conversation.',
+                        type: 3,
+                        required: true,
+                        choices: [
+                            { name: 'Default', value: '0' },
+                            { name: 'Fast', value: '1' },
+                            { name: 'Pro', value: '2' }
+                        ]
+                    }
+                ]
+            });
+            console.log(`\x1b[90m  - \x1b[0mCreated command: \x1b[34m${config.bot.commands.use}\x1b[0m.`);
+        } catch (err) {
+            console.error(`\x1b[90m  - \x1b[31mFailed to generate command "${config.bot.commands.use}": ${err.message}`);
         }
     }
 } catch (err) {
