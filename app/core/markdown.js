@@ -58,6 +58,12 @@ async function sendMessage(channel, body, attachments) {
     return msg;
 }
 
+function getCodeblockLen(str) {
+    let i;
+    for (i = 0; i < str.length; i++) if (str[i] !== '`') break;
+    return i;
+}
+
 // stream interact in discord messages
 export async function messageStreamInteract(interactStream, ctx) {
     const stream = interactToLine(interactStream);
@@ -82,6 +88,7 @@ export async function messageStreamInteract(interactStream, ctx) {
 
     ctx.inCodeblock = ctx.inCodeblock ?? false;
     ctx.codeblockLang = ctx.codeblockLang ?? '';
+    ctx.codeblockLen = ctx.codeblockLen ?? 3;
 
     ctx.h1At = ctx.h1At ?? 0;
     ctx.h2At = ctx.h2At ?? 0;
@@ -99,9 +106,10 @@ export async function messageStreamInteract(interactStream, ctx) {
         for await (let i of stream) {
             if (i.type === 'line') {
                 if (ctx.inCodeblock) {
-                    if (i.line.startsWith('```')) {
-                        if (ctx.code.length + 8 + ctx.codeblockLang.length > 2000) { // send as file
-                            const langDot = ctx.codeblockLang.indexOf('.');
+                    const codeBlockLen = getCodeblockLen(i.line);
+                    if (codeBlockLen >= ctx.codeblockLen) {
+                        const langDot = ctx.codeblockLang.indexOf('.');
+                        if ((ctx.code.length + 8 + ctx.codeblockLang.length > 2000) || (langDot >= 0)) { // send as file
                             ctx.lastMsg = await sendMessage(ctx.lastMsg.channel_id, {
                                 allowed_mentions: { parse: [], replied_user: message.author.id === author.id },
                                 message_reference: (ctx.lastMsg === message) ? { message_id: message.id } : undefined,
@@ -118,6 +126,7 @@ export async function messageStreamInteract(interactStream, ctx) {
                                 }]
                             }, [new Attachment((langDot >= 0) ? 'code' + ctx.codeblockLang.slice(langDot) : ctx.codeblockLang ? `code.${ctx.codeblockLang}` : 'code.txt', 'text/plain', ctx.code)]);
                             await type();
+                            if (langDot >= 0) ctx._context.files[ctx.codeblockLang] = ctx.code;
                             ctx.code = '';
                             ctx.text = '';
                             ctx.codeblockLang = '';
@@ -149,9 +158,11 @@ export async function messageStreamInteract(interactStream, ctx) {
                         ctx.code += i.line + '\n';
                     }
                 } else {
-                    if (i.line.startsWith('```')) {
-                        ctx.codeblockLang = i.line.slice(3);
+                    const codeBlockLen = getCodeblockLen(i.line);
+                    if (codeBlockLen >= 3) {
+                        ctx.codeblockLang = i.line.slice(codeBlockLen);
                         ctx.inCodeblock = true;
+                        ctx.codeBlockLen = codeBlockLen;
                     } else {
                         if (i.line === '') ctx.emptyLineAt = ctx.text.length;
                         ctx.newLineAt = ctx.text.length;
@@ -266,8 +277,8 @@ export async function messageStreamInteract(interactStream, ctx) {
 
                 // send overflowed messages
                 if (ctx.inCodeblock) {
-                    if (ctx.code.length + 8 + ctx.codeblockLang.length > 2000) { // send as file
-                        const langDot = ctx.codeblockLang.indexOf('.');
+                    const langDot = ctx.codeblockLang.indexOf('.');
+                    if ((ctx.code.length + 8 + ctx.codeblockLang.length > 2000) || langDot >= 0) { // send as file
                         ctx.lastMsg = await sendMessage(ctx.lastMsg.channel_id, {
                             allowed_mentions: { parse: [], replied_user: message.author.id === author.id },
                             message_reference: (ctx.lastMsg === message) ? { message_id: message.id } : undefined,
@@ -284,6 +295,7 @@ export async function messageStreamInteract(interactStream, ctx) {
                             }]
                         }, [new Attachment((langDot >= 0) ? 'code' + ctx.codeblockLang.slice(langDot) : ctx.codeblockLang ? `code.${ctx.codeblockLang}` : 'code.txt', 'text/plain', ctx.code)]);
                         await type();
+                        if (langDot >= 0) ctx._context.files[ctx.codeblockLang] = ctx.code;
                         ctx.code = '';
                         ctx.text = '';
                         ctx.codeblockLang = '';
@@ -313,7 +325,7 @@ export async function messageStreamInteract(interactStream, ctx) {
                     ctx.inCodeblock = false;
                 }
 
-                if (!ctx.text.trim() && (calls.length === 0) && (responses.length === 0)) return;
+                if (!ctx.text.trim() && (calls.length === 0) && (responses.length === 0) && (ctx.count === 1)) return;
 
                 if ((responses.length > 0) && !ctx.executed) { // again
                     ctx.executed = true;

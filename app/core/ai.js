@@ -108,6 +108,7 @@ export async function generate(message, author = message.author) {
                 conversation: conversation,
                 author: author,
                 agent: agent,
+                files: {}
             },
             _service: userConfig?.service,
             _model: userConfig?.model,
@@ -125,7 +126,7 @@ export async function generate(message, author = message.author) {
 
         // show price
         if (config.users.dev.has(author.id)) client.request('POST', `/channels/${message.channel_id}/messages`, {
-            content: `-# 💸 \`${Number(ctx.price) / 1000000000}\``
+            content: `-# 💸 \`${Number(ctx.price) / 1000000000}\`\n-# 📄 \`${Object.keys(ctx._context.files).join('`, `') || '-'}\``
         });
     } catch (err) {
         console.error(err)

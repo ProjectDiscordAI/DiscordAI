@@ -22,16 +22,6 @@ export async function dashboard(d) {
     // load user from database
     let user = await getUser(author.id);
 
-    // time and check banned
-    const now = Date.now();
-    if (user.banned_until > now) {
-        await client.request('POST', `/interactions/${d.id}/${d.token}/callback`, {
-            type: 4, // channel message
-            data: ui.bannedMessage(null, author, user)
-        });
-        return;
-    }
-
     // check policy accept status
     if (user.policy_accept < config.policy.update) {
         await client.request('POST', `/interactions/${d.id}/${d.token}/callback`, {

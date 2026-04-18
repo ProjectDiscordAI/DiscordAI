@@ -65,6 +65,10 @@ export async function devGetUser(d, params) {
                             {
                                 type: 2, style: 1,
                                 label: 'Set credit', custom_id: `d2:devSetCredit?user=${targetUser}#${author.id}`
+                            },
+                            {
+                                type: 2, style: 4,
+                                label: 'Ban', custom_id: `d2:devBanUser?user=${targetUser}#${author.id}`
                             }
                         ]
                     }
@@ -112,6 +116,51 @@ export async function devSetCredit(d, params) {
                             `**User ID**: \`${user.id}\`\n` +
                             `**Free credits**: \`${Number(user.free_credits) / 1000000000}\` (\`${user.free_credits}\` nano-credits) => \`${Number(newCredits.free_credits ?? user.free_credits) / 1000000000}\` (\`${newCredits.free_credits ?? user.free_credits}\` nano-credits)\n` +
                             `**Paid credits**: \`${Number(user.paid_credits) / 1000000000}\` (\`${user.paid_credits}\` nano-credits) => \`${Number(newCredits.paid_credits ?? user.paid_credits) / 1000000000}\` (\`${newCredits.paid_credits ?? user.paid_credits}\` nano-credits)\n`
+                    }
+                ]
+            }]
+        }
+    });
+}
+
+export async function devBanUser(d, params) {
+    const author = d.user ?? d.member.user;
+    if (!config.users.dev.has(author.id)) return;
+
+    const fields = {
+        time: d.data.components[0].component.values[0],
+        year: d.data.components[1].component.value,
+        day: d.data.components[2].component.value,
+        hour: d.data.components[3].component.value,
+        minutes: d.data.components[4].component.value
+    };
+
+    // get user
+    const user = await getUser(params.get('user'));
+
+    // now and banned
+    const now = Date.now();
+    const banned = now + parseInt(fields.time || 0) + parseInt(fields.year || 0) * 31536000000 + parseInt(fields.day || 0) * 86400000 + parseInt(fields.hour || 0) * 3600000 + parseInt(fields.minutes || 0) * 60000;
+
+    // update credit
+    await userDB.setLineByField('id', params.get('user'), { banned_until: banned });
+
+    // respond
+    await client.request('POST', `/interactions/${d.id}/${d.token}/callback`, {
+        type: 4, // channel message
+        data: {
+            allowed_mentions: { parse: [] },
+            flags: 1 << 15 | 1 << 6,
+            components: [{
+                type: 17,
+                accent_color: 0x00FF00,
+                components: [
+                    {
+                        type: 10, // text
+                        content: '# Updated user ban\n\n' +
+                            `**User**: <@${user.id}>\n` +
+                            `**User ID**: \`${user.id}\`\n` +
+                            `**Banned until**: <t:${Math.floor(user.banned_until / 1000)}:S> => <t:${Math.floor(banned / 1000)}:S>\n`
                     }
                 ]
             }]

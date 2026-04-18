@@ -99,7 +99,7 @@ Hey, <@${author.id}>! We've updated our [Terms of Service (ToS)](${config.policy
 export function bannedMessage(message, author, user) {
     return {
         message_reference: (message?.author?.id === author.id) ? { message_id: message?.id } : undefined,
-        flags: 1 << 15,
+        flags: 1 << 15 | 1 << 6,
         components: [{
             type: 17,
             id: 1_003, // ids over 1000 is discordai's special message flag
@@ -197,7 +197,7 @@ export function policyRejected(d) {
 
 // dashboard
 export function dashboard(d, user) {
-
+    const now = Date.now();
     return {
         flags: 1 << 15 | 1 << 6,
         components: [{
@@ -210,7 +210,9 @@ export function dashboard(d, user) {
                 },
                 {
                     type: 10, // text
-                    content: `**Free credits**: \`${Number(user.free_credits) / 1000000000}\` / \`${Number(config.credit.daily) / 1000000000}\`\n` +
+                    content:
+                        (user.banned_until > now ? `**You are currently banned until <t:${Math.floor(user.banned_until / 1000)}:S>.**\n` : '') +
+                        `**Free credits**: \`${Number(user.free_credits) / 1000000000}\` / \`${Number(config.credit.daily) / 1000000000}\`\n` +
                         `**Paid credits**: \`${Number(user.paid_credits) / 1000000000}\`\n` +
                         `**Next free credit refill**: <t:${Math.floor(Math.ceil(Date.now() / 3600000) * 3600)}:S> (\`${Number(config.credit.hourly) / 1000000000}\`/hr)`
                 },

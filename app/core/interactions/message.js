@@ -271,3 +271,96 @@ export async function devSetCredit(d, params) {
         }
     }).catch(async e => console.log(e));
 }
+
+export async function devBanUser(d, params) {
+    const author = d.user ?? d.member.user;
+    if (!config.users.dev.has(author.id)) return;
+
+    const user = await getUser(params.get('user'));
+
+    await client.request('POST', `/interactions/${d.id}/${d.token}/callback`, {
+        type: 9, // modal
+        data: {
+            custom_id: `d2:devBanUser?user=${params.get('user')}`,
+            title: 'Set credits (Dev)',
+            components: [
+                {
+                    "type": 18,
+                    "label": "Preset Duration",
+                    "component": {
+                        "type": 3,
+                        "custom_id": "banPreset",
+                        "placeholder": "Select a preset duration",
+                        "required": false,
+                        "options": [
+                            { "label": "1 Minute", "value": "60000" },
+                            { "label": "5 Minutes", "value": "300000" },
+                            { "label": "10 Minutes", "value": "600000" },
+                            { "label": "30 Minutes", "value": "1800000" },
+                            { "label": "1 Hour", "value": "3600000" },
+                            { "label": "3 Hours", "value": "10800000" },
+                            { "label": "6 Hours", "value": "21600000" },
+                            { "label": "12 Hours", "value": "43200000" },
+                            { "label": "1 Day", "value": "86400000" },
+                            { "label": "3 Days", "value": "259200000" },
+                            { "label": "7 Days", "value": "604800000" },
+                            { "label": "30 Days", "value": "2592000000" },
+                            { "label": "1 Year", "value": "31536000000" },
+                            { "label": "5 Years", "value": "157680000000" },
+                            { "label": "10 Years", "value": "315360000000" },
+                            { "label": "100 Years", "value": "3153600000000" }
+                        ]
+                    }
+                },
+                {
+                    "type": 18,
+                    "label": "Years",
+                    "component": {
+                        "type": 4,
+                        "custom_id": "banYears",
+                        "style": 1,
+                        "placeholder": "0",
+                        "required": false,
+                        "max_length": 4000
+                    }
+                },
+                {
+                    "type": 18,
+                    "label": "Days",
+                    "component": {
+                        "type": 4,
+                        "custom_id": "banDays",
+                        "style": 1,
+                        "placeholder": "0",
+                        "required": false,
+                        "max_length": 4000
+                    }
+                },
+                {
+                    "type": 18,
+                    "label": "Hours",
+                    "component": {
+                        "type": 4,
+                        "custom_id": "banHours",
+                        "style": 1,
+                        "placeholder": "0",
+                        "required": false,
+                        "max_length": 4000
+                    }
+                },
+                {
+                    "type": 18,
+                    "label": "Minutes",
+                    "component": {
+                        "type": 4,
+                        "custom_id": "banMinutes",
+                        "style": 1,
+                        "placeholder": "0",
+                        "required": false,
+                        "max_length": 4000
+                    }
+                }
+            ]
+        }
+    }).catch(async e => console.log(e));
+}

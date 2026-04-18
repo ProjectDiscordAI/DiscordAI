@@ -54,7 +54,7 @@ f.detail = (args, ctx) => {
             headers += `${i}: ${args.headers[i]}\n`;
         }
     }
-    console.log(args)
+
     return '```\n' + (args.method ?? 'GET') + ' ' + args.url + '\n```\n' +
         (headers ? '```\n' + headers + '\n```\n' : '') +
         (args.body ? '```\n' + args.body + '\n```\n' : '');
