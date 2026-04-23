@@ -5,3 +5,4 @@ app/encryption.key
 /app/log
 /app/db
 app/.env.json
+/app/toolkits/user

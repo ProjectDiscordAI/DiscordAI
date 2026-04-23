@@ -101,8 +101,11 @@ export async function run(d) {
 
     // delete loading and remove components
     await client.request('PATCH', `/channels/${d.message.channel_id}/messages/${d.message.id}`, {
-        components: (d.message.components[0].components[0].type === 5) ? [
-            d.message.components[0].components[0]
+        components: (d.message.components[0].components[0].style === 5) ? [
+            {
+                type: 1,
+                components: [d.message.components[0].components[0]]
+            }
         ] : []
     });
     await client.request('DELETE', `/webhooks/${user.id}/${d.token}/messages/@original`);
@@ -116,8 +119,11 @@ export async function ignore(d) {
     await client.request('POST', `/interactions/${d.id}/${d.token}/callback`, {
         type: 7, // update message
         data: {
-            components: (d.message.components[0].components[0].type === 5) ? [
-                d.message.components[0].components[0]
+            components: (d.message.components[0].components[0].style === 5) ? [
+                {
+                    type: 1,
+                    components: [d.message.components[0].components[0]]
+                }
             ] : []
         }
     });

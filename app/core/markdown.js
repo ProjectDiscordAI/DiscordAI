@@ -102,6 +102,37 @@ export async function messageStreamInteract(interactStream, ctx) {
     }
     await type();
 
+    async function sendPart(content) {
+        ctx.lastMsg = await sendMessage(ctx.lastMsg.channel_id, {
+            allowed_mentions: { parse: [], replied_user: message.author.id === author.id },
+            message_reference: (ctx.lastMsg === message) ? { message_id: message.id } : undefined,
+            content: content,
+            components: [{
+                type: 1, components: [{
+                    type: 2, style: 5, label: `${ctx.count++} / ~`,
+                    url: `https://discord.com/channels/${ctx.lastMsg.guild_id ?? '@me'}/${ctx.lastMsg.channel_id}/${ctx.lastMsg.id}`
+                }]
+            }]
+        });
+        await type();
+    }
+
+    function resetFlags(at) {
+        if (at !== undefined) {
+            ctx.h1At -= at;
+            ctx.h2At -= at;
+            ctx.h3At -= at;
+            ctx.emptyLineAt -= at;
+            ctx.newLineAt -= at;
+        } else {
+            ctx.h1At = 0;
+            ctx.h2At = 0;
+            ctx.h3At = 0;
+            ctx.emptyLineAt = 0;
+            ctx.newLineAt = 0;
+        }
+    }
+
     try {
         for await (let i of stream) {
             if (i.type === 'line') {
@@ -109,7 +140,8 @@ export async function messageStreamInteract(interactStream, ctx) {
                     const codeBlockLen = getCodeblockLen(i.line);
                     if (codeBlockLen >= ctx.codeblockLen) {
                         const langDot = ctx.codeblockLang.indexOf('.');
-                        if ((ctx.code.length + 8 + ctx.codeblockLang.length > 2000) || (langDot >= 0)) { // send as file
+                        const mdCodeblockLen = ctx.code.length + 8 + ctx.codeblockLang.length;
+                        if ((mdCodeblockLen > 2000) || (langDot >= 0)) { // send as file
                             ctx.lastMsg = await sendMessage(ctx.lastMsg.channel_id, {
                                 allowed_mentions: { parse: [], replied_user: message.author.id === author.id },
                                 message_reference: (ctx.lastMsg === message) ? { message_id: message.id } : undefined,
@@ -130,23 +162,51 @@ export async function messageStreamInteract(interactStream, ctx) {
                             ctx.code = '';
                             ctx.text = '';
                             ctx.codeblockLang = '';
-                        } else if (ctx.code.length + 8 + ctx.codeblockLang.length + ctx.text.length > 2000) {
-                            // send text part
-                            ctx.lastMsg = await sendMessage(ctx.lastMsg.channel_id, {
-                                allowed_mentions: { parse: [], replied_user: message.author.id === author.id },
-                                message_reference: (ctx.lastMsg === message) ? { message_id: message.id } : undefined,
-                                content: ctx.text,
-                                components: [{
-                                    type: 1, components: [{
-                                        type: 2, style: 5, label: `${ctx.count++} / ~`,
-                                        url: `https://discord.com/channels/${ctx.lastMsg.guild_id ?? '@me'}/${ctx.lastMsg.channel_id}/${ctx.lastMsg.id}`
-                                    }]
-                                }]
-                            });
-                            await type();
-                            ctx.text = '```' + ctx.codeblockLang + '\n' + ctx.code + '```\n';
-                            ctx.code = '';
-                            ctx.codeblockLang = '';
+                            resetFlags();
+                        } else if (mdCodeblockLen + ctx.text.length > 2000) {
+                            if (mdCodeblockLen + ctx.text.length - ctx.h1At <= 2000) {
+                                await sendPart(ctx.text.slice(0, ctx.h1At));
+                                ctx.text = ctx.text.slice(ctx.h1At);
+                                ctx.text += '```' + ctx.codeblockLang + '\n' + ctx.code + '```\n';
+                                ctx.code = '';
+                                ctx.codeblockLang = '';
+                                resetFlags(ctx.h1At);
+                            } else if (mdCodeblockLen + ctx.text.length - ctx.h2At <= 2000) {
+                                await sendPart(ctx.text.slice(0, ctx.h2At));
+                                ctx.text = ctx.text.slice(ctx.h2At);
+                                ctx.text += '```' + ctx.codeblockLang + '\n' + ctx.code + '```\n';
+                                ctx.code = '';
+                                ctx.codeblockLang = '';
+                                resetFlags(ctx.h2At);
+                            } else if (mdCodeblockLen + ctx.text.length - ctx.h3At <= 2000) {
+                                await sendPart(ctx.text.slice(0, ctx.h3At));
+                                ctx.text = ctx.text.slice(ctx.h3At);
+                                ctx.text += '```' + ctx.codeblockLang + '\n' + ctx.code + '```\n';
+                                ctx.code = '';
+                                ctx.codeblockLang = '';
+                                resetFlags(ctx.h3At);
+                            } else if (mdCodeblockLen + ctx.text.length - ctx.emptyLineAt <= 2000) {
+                                await sendPart(ctx.text.slice(0, ctx.emptyLineAt));
+                                ctx.text = ctx.text.slice(ctx.emptyLineAt);
+                                ctx.text += '```' + ctx.codeblockLang + '\n' + ctx.code + '```\n';
+                                ctx.code = '';
+                                ctx.codeblockLang = '';
+                                resetFlags(ctx.emptyLineAt);
+                            } else if (mdCodeblockLen + ctx.text.length - ctx.newLineAt <= 2000) {
+                                await sendPart(ctx.text.slice(0, ctx.newLineAt));
+                                ctx.text = ctx.text.slice(ctx.newLineAt);
+                                ctx.text += '```' + ctx.codeblockLang + '\n' + ctx.code + '```\n';
+                                ctx.code = '';
+                                ctx.codeblockLang = '';
+                                resetFlags(ctx.newLineAt);
+                            } else {
+                                // send text part
+                                await sendPart(ctx.text);
+                                ctx.text = '```' + ctx.codeblockLang + '\n' + ctx.code + '```\n';
+                                ctx.code = '';
+                                ctx.codeblockLang = '';
+                                resetFlags();
+                            }
                         } else {
                             // bring code to text
                             ctx.text += '```' + ctx.codeblockLang + '\n' + ctx.code + '```\n';
@@ -162,97 +222,41 @@ export async function messageStreamInteract(interactStream, ctx) {
                     if (codeBlockLen >= 3) {
                         ctx.codeblockLang = i.line.slice(codeBlockLen);
                         ctx.inCodeblock = true;
-                        ctx.codeBlockLen = codeBlockLen;
+                        ctx.codeblockLen = codeBlockLen;
                     } else {
                         if (i.line === '') ctx.emptyLineAt = ctx.text.length;
+                        if (i.line.startsWith('# ')) ctx.h1At = ctx.text.length;
+                        if (i.line.startsWith('## ')) ctx.h2At = ctx.text.length;
+                        if (i.line.startsWith('### ')) ctx.h3At = ctx.text.length;
                         ctx.newLineAt = ctx.text.length;
                         ctx.text += i.line + '\n';
 
                         if (ctx.text.length > 2000) {
                             if (ctx.text.length - ctx.h1At <= 2000) {
-                                ctx.lastMsg = await sendMessage(ctx.lastMsg.channel_id, {
-                                    allowed_mentions: { parse: [], replied_user: message.author.id === author.id },
-                                    message_reference: (ctx.lastMsg === message) ? { message_id: message.id } : undefined,
-                                    content: ctx.text.slice(0, ctx.h1At),
-                                    components: [{
-                                        type: 1, components: [{
-                                            type: 2, style: 5, label: `${ctx.count++} / ~`,
-                                            url: `https://discord.com/channels/${ctx.lastMsg.guild_id ?? '@me'}/${ctx.lastMsg.channel_id}/${ctx.lastMsg.id}`
-                                        }]
-                                    }]
-                                });
-                                await type();
+                                await sendPart(ctx.text.slice(0, ctx.h1At));
                                 ctx.text = ctx.text.slice(ctx.h1At);
+                                resetFlags(ctx.h1At);
                             } else if (ctx.text.length - ctx.h2At <= 2000) {
-                                ctx.lastMsg = await sendMessage(ctx.lastMsg.channel_id, {
-                                    allowed_mentions: { parse: [], replied_user: message.author.id === author.id },
-                                    message_reference: (ctx.lastMsg === message) ? { message_id: message.id } : undefined,
-                                    content: ctx.text.slice(0, ctx.h2At),
-                                    components: [{
-                                        type: 1, components: [{
-                                            type: 2, style: 5, label: `${ctx.count++} / ~`,
-                                            url: `https://discord.com/channels/${ctx.lastMsg.guild_id ?? '@me'}/${ctx.lastMsg.channel_id}/${ctx.lastMsg.id}`
-                                        }]
-                                    }]
-                                });
-                                await type();
+                                await sendPart(ctx.text.slice(0, ctx.h2At));
                                 ctx.text = ctx.text.slice(ctx.h2At);
+                                resetFlags(ctx.h2At);
                             } else if (ctx.text.length - ctx.h3At <= 2000) {
-                                ctx.lastMsg = await sendMessage(ctx.lastMsg.channel_id, {
-                                    allowed_mentions: { parse: [], replied_user: message.author.id === author.id },
-                                    message_reference: (ctx.lastMsg === message) ? { message_id: message.id } : undefined,
-                                    content: ctx.text.slice(0, ctx.h3At),
-                                    components: [{
-                                        type: 1, components: [{
-                                            type: 2, style: 5, label: `${ctx.count++} / ~`,
-                                            url: `https://discord.com/channels/${ctx.lastMsg.guild_id ?? '@me'}/${ctx.lastMsg.channel_id}/${ctx.lastMsg.id}`
-                                        }]
-                                    }]
-                                });
-                                await type();
+                                await sendPart(ctx.text.slice(0, ctx.h3At));
                                 ctx.text = ctx.text.slice(ctx.h3At);
+                                resetFlags(ctx.h3At);
                             } else if (ctx.text.length - ctx.emptyLineAt <= 2000) {
-                                ctx.lastMsg = await sendMessage(ctx.lastMsg.channel_id, {
-                                    allowed_mentions: { parse: [], replied_user: message.author.id === author.id },
-                                    message_reference: (ctx.lastMsg === message) ? { message_id: message.id } : undefined,
-                                    content: ctx.text.slice(0, ctx.emptyLineAt),
-                                    components: [{
-                                        type: 1, components: [{
-                                            type: 2, style: 5, label: `${ctx.count++} / ~`,
-                                            url: `https://discord.com/channels/${ctx.lastMsg.guild_id ?? '@me'}/${ctx.lastMsg.channel_id}/${ctx.lastMsg.id}`
-                                        }]
-                                    }]
-                                });
-                                await type();
+                                await sendPart(ctx.text.slice(0, ctx.emptyLineAt));
                                 ctx.text = ctx.text.slice(ctx.emptyLineAt);
+                                resetFlags(ctx.emptyLineAt);
                             } else if (ctx.text.length - ctx.newLineAt <= 2000) {
-                                ctx.lastMsg = await sendMessage(ctx.lastMsg.channel_id, {
-                                    allowed_mentions: { parse: [], replied_user: message.author.id === author.id },
-                                    message_reference: (ctx.lastMsg === message) ? { message_id: message.id } : undefined,
-                                    content: ctx.text.slice(0, ctx.newLineAt),
-                                    components: [{
-                                        type: 1, components: [{
-                                            type: 2, style: 5, label: `${ctx.count++} / ~`,
-                                            url: `https://discord.com/channels/${ctx.lastMsg.guild_id ?? '@me'}/${ctx.lastMsg.channel_id}/${ctx.lastMsg.id}`
-                                        }]
-                                    }]
-                                });
-                                await type();
+                                await sendPart(ctx.text.slice(0, ctx.newLineAt));
                                 ctx.text = ctx.text.slice(ctx.newLineAt);
+                                resetFlags(ctx.newLineAt);
                             } else {
                                 while (ctx.text.length > 2000) {
-                                    ctx.lastMsg = await sendMessage(ctx.lastMsg.channel_id, {
-                                        allowed_mentions: { parse: [], replied_user: message.author.id === author.id },
-                                        message_reference: (ctx.lastMsg === message) ? { message_id: message.id } : undefined,
-                                        content: ctx.text.slice(0, 2000),
-                                        components: [{
-                                            type: 1, components: [{
-                                                type: 2, style: 5, label: `${ctx.count++} / ~`,
-                                                url: `https://discord.com/channels/${ctx.lastMsg.guild_id ?? '@me'}/${ctx.lastMsg.channel_id}/${ctx.lastMsg.id}`
-                                            }]
-                                        }]
-                                    });
+                                    await sendPart(ctx.text.slice(0, 2000));
                                     ctx.text = ctx.text.slice(2000);
+                                    resetFlags(2000);
                                 }
                                 await type();
                             }
@@ -278,7 +282,8 @@ export async function messageStreamInteract(interactStream, ctx) {
                 // send overflowed messages
                 if (ctx.inCodeblock) {
                     const langDot = ctx.codeblockLang.indexOf('.');
-                    if ((ctx.code.length + 8 + ctx.codeblockLang.length > 2000) || langDot >= 0) { // send as file
+                    const mdCodeblockLen = ctx.code.length + 8 + ctx.codeblockLang.length;
+                    if ((mdCodeblockLen > 2000) || langDot >= 0) { // send as file
                         ctx.lastMsg = await sendMessage(ctx.lastMsg.channel_id, {
                             allowed_mentions: { parse: [], replied_user: message.author.id === author.id },
                             message_reference: (ctx.lastMsg === message) ? { message_id: message.id } : undefined,
@@ -295,27 +300,57 @@ export async function messageStreamInteract(interactStream, ctx) {
                             }]
                         }, [new Attachment((langDot >= 0) ? 'code' + ctx.codeblockLang.slice(langDot) : ctx.codeblockLang ? `code.${ctx.codeblockLang}` : 'code.txt', 'text/plain', ctx.code)]);
                         await type();
+
                         if (langDot >= 0) ctx._context.files[ctx.codeblockLang] = ctx.code;
                         ctx.code = '';
                         ctx.text = '';
                         ctx.codeblockLang = '';
-                    } else if (ctx.code.length + 8 + ctx.codeblockLang.length + ctx.text.length > 2000) {
-                        // send text part
-                        ctx.lastMsg = await sendMessage(ctx.lastMsg.channel_id, {
-                            allowed_mentions: { parse: [], replied_user: message.author.id === author.id },
-                            message_reference: (ctx.lastMsg === message) ? { message_id: message.id } : undefined,
-                            content: ctx.text,
-                            components: [{
-                                type: 1, components: [{
-                                    type: 2, style: 5, label: `${ctx.count++} / ~`,
-                                    url: `https://discord.com/channels/${ctx.lastMsg.guild_id ?? '@me'}/${ctx.lastMsg.channel_id}/${ctx.lastMsg.id}`
-                                }]
-                            }]
-                        });
-                        await type();
-                        ctx.text = '```' + ctx.codeblockLang + '\n' + ctx.code + '```\n';
-                        ctx.code = '';
-                        ctx.codeblockLang = '';
+
+                        resetFlags();
+                    } else if (mdCodeblockLen + ctx.text.length > 2000) {
+                        if (mdCodeblockLen + ctx.text.length - ctx.h1At <= 2000) {
+                            await sendPart(ctx.text.slice(0, ctx.h1At));
+                            ctx.text = ctx.text.slice(ctx.h1At);
+                            ctx.text += '```' + ctx.codeblockLang + '\n' + ctx.code + '```\n';
+                            ctx.code = '';
+                            ctx.codeblockLang = '';
+                            resetFlags(ctx.h1At);
+                        } else if (mdCodeblockLen + ctx.text.length - ctx.h2At <= 2000) {
+                            await sendPart(ctx.text.slice(0, ctx.h2At));
+                            ctx.text = ctx.text.slice(ctx.h2At);
+                            ctx.text += '```' + ctx.codeblockLang + '\n' + ctx.code + '```\n';
+                            ctx.code = '';
+                            ctx.codeblockLang = '';
+                            resetFlags(ctx.h2At);
+                        } else if (mdCodeblockLen + ctx.text.length - ctx.h3At <= 2000) {
+                            await sendPart(ctx.text.slice(0, ctx.h3At));
+                            ctx.text = ctx.text.slice(ctx.h3At);
+                            ctx.text += '```' + ctx.codeblockLang + '\n' + ctx.code + '```\n';
+                            ctx.code = '';
+                            ctx.codeblockLang = '';
+                            resetFlags(ctx.h3At);
+                        } else if (mdCodeblockLen + ctx.text.length - ctx.emptyLineAt <= 2000) {
+                            await sendPart(ctx.text.slice(0, ctx.emptyLineAt));
+                            ctx.text = ctx.text.slice(ctx.emptyLineAt);
+                            ctx.text += '```' + ctx.codeblockLang + '\n' + ctx.code + '```\n';
+                            ctx.code = '';
+                            ctx.codeblockLang = '';
+                            resetFlags(ctx.emptyLineAt);
+                        } else if (mdCodeblockLen + ctx.text.length - ctx.newLineAt <= 2000) {
+                            await sendPart(ctx.text.slice(0, ctx.newLineAt));
+                            ctx.text = ctx.text.slice(ctx.newLineAt);
+                            ctx.text += '```' + ctx.codeblockLang + '\n' + ctx.code + '```\n';
+                            ctx.code = '';
+                            ctx.codeblockLang = '';
+                            resetFlags(ctx.newLineAt);
+                        } else {
+                            // send text part
+                            await sendPart(ctx.text);
+                            ctx.text = '```' + ctx.codeblockLang + '\n' + ctx.code + '```\n';
+                            ctx.code = '';
+                            ctx.codeblockLang = '';
+                            resetFlags();
+                        }
                     } else {
                         // bring code to text
                         ctx.text += '```' + ctx.codeblockLang + '\n' + ctx.code + '```\n';
@@ -336,7 +371,8 @@ export async function messageStreamInteract(interactStream, ctx) {
                     previous: (responses.length > 0) ? i.conversation.conversation[i.conversation.conversation.length - 2] : undefined,
                     current: i.conversation.last,
                     ref: message.id,
-                    calls: calls
+                    calls: calls,
+                    files: ctx._context.files
                 };
 
                 ctx.lastMsg = await sendMessage(ctx.lastMsg.channel_id, {
@@ -398,11 +434,7 @@ export async function messageStreamInteract(interactStream, ctx) {
                     ctx.inCodeblock = false;
                     ctx.codeblockLang = '';
 
-                    ctx.h1At = 0;
-                    ctx.h2At = 0;
-                    ctx.h3At = 0;
-                    ctx.emptyLineAt = 0;
-                    ctx.newLineAt = 0;
+                    resetFlags();
 
                     // run
                     return messageStreamInteract(await i.conversation.streamInteract([], ctx), ctx);

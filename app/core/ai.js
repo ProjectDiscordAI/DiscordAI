@@ -74,7 +74,7 @@ export async function generate(message, author = message.author) {
         tasks.add(task);
 
         // build conversation
-        const { conversation: conv, instruction, rootMessage, model } = await buildConversation(message, author);
+        const { conversation: conv, instruction, rootMessage, model, files } = await buildConversation(message, author);
 
         // load user config
         const userConfig = await getUserConfig(author.id);
@@ -108,7 +108,7 @@ export async function generate(message, author = message.author) {
                 conversation: conversation,
                 author: author,
                 agent: agent,
-                files: {}
+                files: files
             },
             _service: userConfig?.service,
             _model: userConfig?.model,
@@ -126,7 +126,7 @@ export async function generate(message, author = message.author) {
 
         // show price
         if (config.users.dev.has(author.id)) client.request('POST', `/channels/${message.channel_id}/messages`, {
-            content: `-# 💸 \`${Number(ctx.price) / 1000000000}\`\n-# 📄 \`${Object.keys(ctx._context.files).join('`, `') || '-'}\``
+            content: `-# \`${conversation.meta.model}\` 💸 \`${Number(ctx.price) / 1000000000}\` 📄 \`${Object.keys(ctx._context.files).join('`, `') || '-'}\``
         });
     } catch (err) {
         console.error(err)
@@ -164,6 +164,7 @@ export async function buildConversation(message, author) {
     let conversation = [];
     let ref = message;
     let rootMessage = message;
+    let files = {};
 
     // loop for collecting messages
     let instruction = '';
@@ -223,6 +224,7 @@ export async function buildConversation(message, author) {
                         if (data.current) conversation.unshift(data.current); // current (commonly function call)
                         if (data.previous) conversation.unshift(data.previous); // previous (commonly function response)
                         if (data.ref) ref = await getMessage(message.channel_id, data.ref); // reference
+                        if (data.files && Object.keys(data.files).length > 0) files = Object.assign(data.files, files);
 
                         continue;
                     }
@@ -329,5 +331,5 @@ export async function buildConversation(message, author) {
     model ??= 'default';
 
     // return
-    return { conversation, instruction, rootMessage, model };
+    return { conversation, instruction, rootMessage, model, files };
 }

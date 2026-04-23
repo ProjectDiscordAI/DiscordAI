@@ -67,6 +67,16 @@
             ],
             "pro": [
                 {
+                    "service": "nvidia",
+                    "auth": "env:nvidia_key",
+                    "name": "nvidia/nemotron-3-super-120b-a12b",
+                    "options": {
+                        "thinkingLevel": "high"
+                    },
+                    "inputPrice": 12000,
+                    "outputPrice": 60000
+                },
+                {
                     "service": "gemini",
                     "auth": "env:gemini_key",
                     "name": "gemini-3-flash-preview",
@@ -75,16 +85,6 @@
                     },
                     "inputPrice": 60000,
                     "outputPrice": 360000
-                },
-                {
-                    "service": "nvidia",
-                    "auth": "env:nvidia_key",
-                    "name": "moonshotai/kimi-k2.5",
-                    "options": {
-                        "thinkingLevel": "high"
-                    },
-                    "inputPrice": 18000,
-                    "outputPrice": 48000
                 },
                 {
                     "service": "gemini",

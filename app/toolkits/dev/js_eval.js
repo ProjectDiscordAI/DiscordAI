@@ -29,7 +29,7 @@ const f = new ai.AIFunction('js_eval', '[DEV,DANGEROUS] Eval JavaScipt in Node.j
 });
 
 f.info = (args, ctx) => {
-    return `eval JsvsScript (**DANGEROUS**)`;
+    return `eval JavaScript (**DANGEROUS**)`;
 };
 
 f.detail = (args, ctx) => {
