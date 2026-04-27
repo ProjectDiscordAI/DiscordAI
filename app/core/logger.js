@@ -70,7 +70,7 @@ global.console.warn = (...args) => {
         lastLocalDate = d.localDate;
         global.console._log(`\x1b[90m${d.localDate}\x1b[0m`);
     }
-    global.console._log(`\x1b[93m${d.localTime} |\x1b[0m ${message}`);
+    global.console._warn(`\x1b[93m${d.localTime} |\x1b[0m ${message}`);
 }
 
 global.console.error = (...args) => {
@@ -83,5 +83,5 @@ global.console.error = (...args) => {
         lastLocalDate = d.localDate;
         global.console._log(`\x1b[90m${d.localDate}\x1b[0m`);
     }
-    global.console._log(`\x1b[91m${d.localTime} |\x1b[0m ${message}`);
+    global.console._error(`\x1b[91m${d.localTime} |\x1b[0m ${message}`);
 }
